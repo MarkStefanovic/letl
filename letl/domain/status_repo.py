@@ -26,5 +26,5 @@ class JobStatusRepo(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def last_run(self, *, job_name: str) -> datetime.datetime:
+    def latest_status(self, *, job_name: str) -> datetime.datetime:
         raise NotImplementedError

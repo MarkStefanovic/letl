@@ -65,12 +65,32 @@ class SAStatusRepo(domain.JobStatusRepo):
         stmt = db.status.delete().where(db.status.c.started <= ts)
         self._con.execute(stmt)
 
-    def last_run(self, *, job_name: str) -> typing.Optional[datetime.datetime]:
+    def latest_status(self, *, job_name: str) -> typing.Optional[domain.JobStatus]:
+        # # fmt: off
+        # stmt = (
+        #     sa.select(sa.func.max(db.status.c.ended).label("ts"))
+        #     .where(db.status.c.status == "success")
+        #     .where(db.status.c.job_name == job_name)
+        # )
+        # # fmt: on
+        # return self._con.execute(stmt).scalar()
+
         # fmt: off
         stmt = (
-            sa.select(sa.func.max(db.status.c.ended).label("ts"))
-            .where(db.status.c.status == "success")
+            db.status
+            .select()
             .where(db.status.c.job_name == job_name)
+            .order_by(sa.desc(db.status.c.started))
+            .limit(1)
         )
         # fmt: on
-        return self._con.execute(stmt).scalar()
+        result = self._con.execute(stmt).first()
+        return domain.JobStatus(
+            batch_id=result.batch_id,
+            job_name=result.job_name,
+            status=result.status,
+            started=result.started,
+            ended=result.ended,
+            skipped_reason=result.skipped_reason,
+            error_message=result.error_message,
+        )

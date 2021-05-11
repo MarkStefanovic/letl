@@ -1,5 +1,7 @@
+import dataclasses
 import datetime
 import multiprocessing
+import time
 import typing
 
 from letl import adapter, domain
@@ -7,42 +9,87 @@ from letl.service import sa_logger
 
 import sqlalchemy as sa
 
-__all__ = ("run_batch",)
+__all__ = ("run_jobs",)
 
 
-def run_batch(
+def run(
     *,
-    batch: typing.List[typing.List[domain.Job]],
+    jobs: typing.Set[domain.Job],
     etl_db_uri: str,
     max_processes: int = 3,
     timeout_seconds: int = 3600,
     log_to_console: bool = False,
+    tick_seconds: int = 5,
 ) -> typing.Set[domain.JobStatus]:
-    check_job_names_are_unique(batch=batch)
+    check_job_names_are_unique(jobs=jobs)
     batch_id = domain.unique_id.generate()
     results: typing.List[typing.List[domain.JobStatus]] = []
-    for group in batch:
-        result = run_group(
-            batch_id=batch_id,
-            group=group,
-            etl_db_uri=etl_db_uri,
-            max_processes=max_processes,
-            timeout_seconds=timeout_seconds,
-            log_to_console=log_to_console,
+    start = datetime.datetime.now()
+    elapsed_seconds = 0
+    while jobs:
+        if elapsed_seconds > timeout_seconds:
+            break
+        ready_jobs: typing.List[domain.Job] = []
+        for job in jobs:
+            if job_is_ready(con=con, job=job):
+                jobs.remove(job)
+                ready_jobs.append(job)
+        if ready_jobs:
+            seconds_remaining = int(
+                timeout_seconds - (datetime.datetime.now() - start).total_seconds()
+            )
+            result = run_group(
+                batch_id=batch_id,
+                group=ready_jobs,
+                etl_db_uri=etl_db_uri,
+                max_processes=max_processes,
+                timeout_seconds=seconds_remaining,
+                log_to_console=log_to_console,
+            )
+            results.append(result)
+        else:
+            time.sleep(tick_seconds)
+        elapsed_seconds = (datetime.datetime.now() - start).total_seconds()
+
+
+
+def start_planner(*, etl_db_uri: str) -> None:
+
+
+def start_job_runner(*, etl_db_uri: str) -> None:
+
+
+
+def create_plans(*, con: sa.engine.Connection, jobs: typing.List[domain.Job]) -> Plan:
+    repo = adapter.SAStatusRepo(con=con)
+    plans: typing.List[Plan] = []
+    for job in jobs:
+        status: typing.Optional[domain.JobStatus] = repo.latest_status(
+            job_name=job.job_name
         )
-        results.append(result)
-    return {r for grp in results for r in grp}
+        if status.is_running:
+            plan = Plan.skip("The job is already running.")
+            plans.append(plan)
+        elif status.is_error:
+            plan = Plan(
+                run=True,
+                skip=False,
+                skip_reason=None
+            )
+        elif status.is_skipped:
+
+        else:
+            raise NotImplementedError()
 
 
-def check_job_names_are_unique(*, batch: typing.List[typing.List[domain.Job]]) -> None:
+def check_job_names_are_unique(*, jobs: typing.List[domain.Job]) -> None:
     jobs_seen = []
     duplicate_job_names = []
-    for group in batch:
-        for job in group:
-            if job.config.job_name in jobs_seen:
-                duplicate_job_names.append(job.config.job_name)
-            else:
-                jobs_seen.append(job.config.job_name)
+    for job in jobs:
+        if job.job_name in jobs_seen:
+            duplicate_job_names.append(job.job_name)
+        else:
+            jobs_seen.append(job.job_name)
     if duplicate_job_names:
         raise domain.error.DuplicateJobNames(set(duplicate_job_names))
 
@@ -77,7 +124,7 @@ def run_job(
             log_to_console=log_to_console,
         )
         status_repo = adapter.SAStatusRepo(con=con)
-        last_run = status_repo.last_run(job_name=job.job_name)
+        last_run = status_repo.latest_status(job_name=job.job_name)
         job_status_id = status_repo.start(batch_id=batch_id, job_name=job.job_name)
         if last_run:
             seconds_since_last_run = (

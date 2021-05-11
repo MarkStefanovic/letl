@@ -13,7 +13,7 @@ def check_row_count(*, con: sa.engine.Connection, expected_rows: int) -> None:
     ), f"Expected {expected_rows} rows, but got {actual_rows}."
 
 
-def test_last_run_happy_path(in_memory_db: sa.engine.Engine):
+def test_latest_status_happy_path(in_memory_db: sa.engine.Engine):
     with in_memory_db.connect() as con:
         sql = """
             INSERT INTO etl.status 
@@ -29,8 +29,16 @@ def test_last_run_happy_path(in_memory_db: sa.engine.Engine):
         check_row_count(con=con, expected_rows=5)
 
         repo = letl.SAStatusRepo(con=con)
-        result = repo.last_run(job_name="test_job_1")
-        assert result == datetime.datetime(2010, 1, 3, 3, 40)
+        result = repo.latest_status(job_name="test_job_1")
+        assert result == letl.JobStatus(
+            batch_id="3",
+            job_name="test_job_1",
+            status=letl.Status.Success,
+            skipped_reason=None,
+            started=datetime.datetime(2010, 1, 3, 3, 0),
+            ended=datetime.datetime(2010, 1, 3, 3, 40),
+            error_message=None,
+        )
 
 
 def test_start_happy_path(in_memory_db: sa.engine.Engine):
