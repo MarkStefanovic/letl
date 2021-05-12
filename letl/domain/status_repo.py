@@ -18,7 +18,7 @@ class JobStatusRepo(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def start(self, *, batch_id: str, job_name: str) -> int:
+    def start(self, *, job_name: str) -> int:
         raise NotImplementedError
 
     @abc.abstractmethod

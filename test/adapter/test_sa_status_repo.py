@@ -17,13 +17,13 @@ def test_latest_status_happy_path(in_memory_db: sa.engine.Engine):
     with in_memory_db.connect() as con:
         sql = """
             INSERT INTO etl.status 
-                (id, batch_id, job_name, status, started, ended, error_message, skipped_reason)
+                (id, job_name, status, started, ended, error_message, skipped_reason)
             VALUES 
-                (1, '1', 'test_job_1', 'success', '2010-01-01 03:00:00', '2010-01-01 04:00:00', NULL, NULL)
-            ,   (2, '1', 'test_job_2', 'skipped', '2010-01-01 03:01:00', '2010-01-01 03:30:00', NULL, 'skipped_reason')
-            ,   (3, '2', 'test_job_3', 'error', '2010-01-02 03:00:00', '2010-01-02 03:02:00', 'Whoops!', NULL)
-            ,   (4, '3', 'test_job_1', 'success', '2010-01-03 03:00:00', '2010-01-03 03:40:00', NULL, NULL)
-            ,   (5, '2', 'test_job_4', 'running', '2010-01-04 03:01:00', NULL, NULL, NULL)
+                (1, 'test_job_1', 'success', '2010-01-01 03:00:00', '2010-01-01 04:00:00', NULL, NULL)
+            ,   (2, 'test_job_2', 'skipped', '2010-01-01 03:01:00', '2010-01-01 03:30:00', NULL, 'skipped_reason')
+            ,   (3, 'test_job_3', 'error', '2010-01-02 03:00:00', '2010-01-02 03:02:00', 'Whoops!', NULL)
+            ,   (4, 'test_job_1', 'success', '2010-01-03 03:00:00', '2010-01-03 03:40:00', NULL, NULL)
+            ,   (5, 'test_job_4', 'running', '2010-01-04 03:01:00', NULL, NULL, NULL)
         """
         con.execute(sql)
         check_row_count(con=con, expected_rows=5)
@@ -31,7 +31,6 @@ def test_latest_status_happy_path(in_memory_db: sa.engine.Engine):
         repo = letl.SAStatusRepo(con=con)
         result = repo.latest_status(job_name="test_job_1")
         assert result == letl.JobStatus(
-            batch_id="3",
             job_name="test_job_1",
             status=letl.Status.Success,
             skipped_reason=None,

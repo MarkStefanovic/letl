@@ -3,7 +3,10 @@ import pathlib
 import typing
 import traceback
 
-__all__ = ("parse_exception",)
+__all__ = (
+    "DuplicateJobNames",
+    "parse_exception",
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -54,4 +57,11 @@ class LetlError(Exception):
 class DuplicateJobNames(LetlError):
     def __init__(self, jobs: typing.Set[str]):
         self.message = "The following job names are duplicated: " + ", ".join(jobs)
+        super().__init__(self.message)
+
+
+class MissingJobImplementation(LetlError):
+    def __init__(self, *, job_name: str):
+        self.job_name = job_name
+        self.message = f"No implementation was found for the job, {job_name}."
         super().__init__(self.message)

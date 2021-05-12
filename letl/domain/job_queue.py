@@ -1,20 +1,20 @@
 import abc
 import typing
 
-from letl.domain.plan import Plan
+from letl import Job
 
-__all__ = ("PlanRepo",)
+__all__ = ("JobQueue",)
 
 
-class PlanRepo(abc.ABC):
+class JobQueue(abc.ABC):
     @abc.abstractmethod
-    def add(self, /, plan: Plan) -> int:
+    def add(self, *, job_name: str) -> int:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def all(self) -> typing.Set[Plan]:
+    def clear(self) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def delete_stale_plans(self) -> None:
+    def pop(self, n: int) -> typing.Set[Job]:
         raise NotImplementedError

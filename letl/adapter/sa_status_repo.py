@@ -48,9 +48,8 @@ class SAStatusRepo(domain.JobStatusRepo):
         )
         self._con.execute(stmt)
 
-    def start(self, *, batch_id: str, job_name: str) -> int:
+    def start(self, *, job_name: str) -> int:
         stmt = db.status.insert().values(
-            batch_id=batch_id,
             job_name=job_name,
             status=domain.Status.Running.value,
             started=datetime.datetime.now(),
