@@ -1,7 +1,7 @@
 import abc
 import typing
 
-from letl import Job
+from letl.domain.job import Job
 
 __all__ = ("JobQueue",)
 

@@ -7,6 +7,7 @@ authors = ["Mark Stefanovic"]
 [tool.poetry.dependencies]
 python = ">=3.8,<4.0"
 SQLAlchemy = "^1.4.14"
+pykka = "^3.0.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"

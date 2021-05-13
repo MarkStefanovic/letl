@@ -1,10 +1,11 @@
 import abc
 import datetime
+import typing
 
-__all__ = ("JobStatusRepo",)
+__all__ = ("StatusRepo",)
 
 
-class JobStatusRepo(abc.ABC):
+class StatusRepo(abc.ABC):
     @abc.abstractmethod
     def done(self, *, job_status_id: int) -> None:
         raise NotImplementedError
@@ -23,6 +24,12 @@ class JobStatusRepo(abc.ABC):
 
     @abc.abstractmethod
     def delete_before(self, /, ts: datetime.datetime) -> None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def latest_completed_time(
+        self, *, job_name: str
+    ) -> typing.Optional[datetime.datetime]:
         raise NotImplementedError
 
     @abc.abstractmethod
