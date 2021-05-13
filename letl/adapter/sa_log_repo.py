@@ -13,11 +13,12 @@ class SALogRepo(domain.LogRepo):
     def __init__(self, *, con: sa.engine.Connection):
         self._con = con
 
-    def add(
-        self, *, batch_id: str, job_name: str, level: log_level.LogLevel, message: str
-    ) -> None:
+    def add(self, *, job_name: str, level: log_level.LogLevel, message: str) -> None:
         stmt = db.log.insert().values(
-            level=str(level), message=message, ts=datetime.datetime.now()
+            job_name=job_name,
+            level=str(level),
+            message=message,
+            ts=datetime.datetime.now(),
         )
         self._con.execute(stmt)
 

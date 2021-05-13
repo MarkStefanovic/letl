@@ -8,9 +8,7 @@ __all__ = ("LogRepo",)
 
 class LogRepo(abc.ABC):
     @abc.abstractmethod
-    def add(
-        self, *, batch_id: str, job_name: str, level: log_level.LogLevel, message: str
-    ) -> None:
+    def add(self, *, job_name: str, level: log_level.LogLevel, message: str) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod

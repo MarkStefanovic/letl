@@ -10,7 +10,7 @@ from letl import domain, Job
 
 __all__ = ("SAJobQueue",)
 
-logger = domain.root_logger.getChild(__file__)
+logger = domain.root_logger.getChild("sa_job_queue")
 
 
 class SAJobQueue(domain.JobQueue):

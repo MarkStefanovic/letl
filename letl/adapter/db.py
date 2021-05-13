@@ -17,11 +17,14 @@ metadata = sa.MetaData(schema=SCHEMA)
 log = sa.Table(
     "log",
     metadata,
-    sa.Column("id", sa.String(32), primary_key=True),
-    sa.Column("batch_id", sa.String(32), nullable=False),
-    sa.Column("status", sa.String, nullable=False),
+    sa.Column(
+        "id",
+        sa.Integer,
+        sa.Sequence(f"{SCHEMA}.log_id_seq"),
+        primary_key=True,
+    ),
     sa.Column("level", sa.String, nullable=False),
-    sa.Column("name", sa.String, nullable=False),
+    sa.Column("job_name", sa.String, nullable=False),
     sa.Column("ts", sa.DateTime, nullable=False),
     sa.Column("message", sa.String, nullable=False),
 )
@@ -44,6 +47,8 @@ schedule = sa.Table(
     ),
     sa.Column("seconds", sa.Integer, nullable=True),
     sa.Column("start_monthday", sa.Integer, nullable=False),
+    sa.Column("start_month", sa.Integer, nullable=False),
+    sa.Column("end_month", sa.Integer, nullable=False),
     sa.Column("end_monthday", sa.Integer, nullable=False),
     sa.Column("start_weekday", sa.Integer, nullable=False),
     sa.Column("end_weekday", sa.Integer, nullable=False),

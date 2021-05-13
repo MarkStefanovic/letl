@@ -1,42 +1,111 @@
+import dataclasses
 import datetime
+import logging
+import threading
+import types
 import typing
 
+import pykka
 import sqlalchemy as sa
 
 from letl import adapter, domain
 
-__all__ = ("SALogger",)
+__all__ = (
+    "JobLogger",
+    "SALogger",
+)
+
+mod_logger = domain.root_logger.getChild("sa_logger")
 
 
-class SALogger(domain.Logger):
+@dataclasses.dataclass(frozen=True)
+class LogMessage:
+    job_name: str
+    level: domain.LogLevel
+    message: str
+
+
+class SALogger(pykka.ThreadingActor):
+    def __init__(self, *, db_uri: str):
+        super().__init__()
+
+        self._db_uri = db_uri
+
+        self._logger = mod_logger.getChild(self.__class__.__name__)
+
+        self._engine: typing.Optional[sa.engine.Engine] = None
+        self._con: typing.Optional[sa.engine.Connection] = None
+        self._repo: typing.Optional[domain.LogRepo] = None
+
+    def on_failure(
+        self,
+        exception_type: typing.Type[BaseException],
+        exception_value: BaseException,
+        traceback: types.TracebackType,
+    ) -> None:
+        self._logger.debug("on_failure(...) called")
+        msg = domain.error.parse_exception(exception_value).text()
+        if self._repo:
+            self._repo.add(
+                job_name=f"{self.__class__.__name__}.on_failure",
+                level=domain.LogLevel.Error,
+                message=msg,
+            )
+
+        self._cleanup()
+
+    def on_start(self) -> None:
+        self._logger.debug("on_start() called")
+        self._engine = sa.create_engine(self._db_uri, echo=False)
+        self._con = self._engine.connect()
+        self._logger.info("Connected.")
+
+        if self._db_uri == "sqlite://":
+            self._con.execute("ATTACH ':memory:' as etl")
+            adapter.db.create_tables(engine=self._engine)
+
+        self._repo = adapter.SALogRepo(con=self._con)
+
+    def on_stop(self) -> None:
+        self._logger.debug("on_stop() called")
+        self._cleanup()
+
+    def on_receive(self, message: LogMessage) -> None:
+        if self._repo:
+            self._repo.add(
+                job_name=message.job_name,
+                level=message.level,
+                message=message.message,
+            )
+        else:
+            self._logger.error("repo has not been instantiated.")
+
+    def _cleanup(self):
+        self._logger.debug("_cleanup() called")
+        if self._con:
+            self._logger.debug("Closing connection...")
+            self._con.close()
+            self._logger.info("Connection closed.")
+        self._con = None
+        self._engine = None
+        self._repo = None
+
+
+class JobLogger(domain.Logger):
     def __init__(
         self,
         *,
-        batch_id: str,
         job_name: typing.Optional[str],
-        con: sa.engine.Connection,
+        sql_logger: pykka.ActorRef,
         log_to_console: bool = False,
     ):
-        self._batch_id = batch_id
         self._job_name = job_name
-        self._con = con
+        self._sql_logger = sql_logger
         self._log_to_console = log_to_console
 
-        self.__repo: typing.Optional[domain.LogRepo] = None
-
-    @property
-    def _repo(self) -> domain.LogRepo:
-        if self.__repo is None:
-            self.__repo = adapter.SALogRepo(con=self._con)
-        return self.__repo
-
     def _log(self, *, level: domain.LogLevel, message: str) -> None:
-        self._repo.add(
-            batch_id=self._batch_id,
-            job_name=self._job_name,
-            level=level,
-            message=message,
-        )
+        msg = LogMessage(job_name=self._job_name, level=level, message=message)
+        self._sql_logger.tell(msg)
         if self._log_to_console:
             print(
                 f"{datetime.datetime.now().strftime('%H:%M:%S')} ({level.value!s}) "
@@ -45,7 +114,7 @@ class SALogger(domain.Logger):
 
     def error(self, /, message: str) -> None:
         return self._log(
-            level=domain.LogLevel.error(),
+            level=domain.LogLevel.Error,
             message=message,
         )
 
@@ -55,6 +124,28 @@ class SALogger(domain.Logger):
 
     def info(self, /, message: str) -> None:
         return self._log(
-            level=domain.LogLevel.info(),
+            level=domain.LogLevel.Info,
             message=message,
         )
+
+
+if __name__ == "__main__":
+    import time
+
+    logging.basicConfig(level=logging.DEBUG)
+    logging.getLogger().setLevel(logging.DEBUG)
+    # logging.getLogger("sqlalchemy.engine.Engine").setLevel(logging.ERROR)
+    logging.getLogger("pykka").setLevel(logging.DEBUG)
+    print(threading.currentThread())
+    db_uri = "sqlite://"
+
+    logger_actor = SALogger.start(db_uri=db_uri)
+    # proxy = logger_actor.proxy()
+    job_logger = JobLogger(
+        job_name="test", sql_logger=logger_actor, log_to_console=True
+    )
+    job_logger.info("test")
+    time.sleep(1)
+    job_logger.info("test2")
+    time.sleep(1)
+    logger_actor.stop()

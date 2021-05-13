@@ -31,7 +31,7 @@ class ExceptionInfo:
         return f"{self.error_type!s}: {self.error_msg!s}\n  > " + frames
 
 
-def parse_exception(e: Exception) -> ExceptionInfo:
+def parse_exception(e: BaseException) -> ExceptionInfo:
     frames = [
         Frame(
             file=pathlib.Path(f.filename).name,
