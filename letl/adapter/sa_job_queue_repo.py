@@ -1,19 +1,15 @@
 import datetime
-import logging
 import typing
 
 import sqlalchemy as sa
 
+from letl import domain, Job
 from letl.adapter import db
 
-from letl import domain, Job
-
-__all__ = ("SAJobQueue",)
-
-logger = domain.root_logger.getChild("sa_job_queue")
+__all__ = ("SAJobQueueRepo",)
 
 
-class SAJobQueue(domain.JobQueue):
+class SAJobQueueRepo(domain.JobQueueRepo):
     def __init__(self, *, con: sa.engine.Connection):
         self._con = con
 
@@ -33,17 +29,22 @@ class SAJobQueue(domain.JobQueue):
         )
         return result.inserted_primary_key
 
-    def clear(self) -> None:
-        result = self._con.execute(db.job_queue.delete())
-        logger.debug(f"Deleted {result.rowcount} rows from job_queue.")
+    def all(self) -> typing.List[str]:
+        jobs = self._con.execute(db.job_queue.select().order_by(db.job_queue.c.added))
+        return [job.name for job in jobs]
 
-    def pop(self, n: int) -> typing.Set[Job]:
-        result = self._con.execute(
+    def clear(self) -> None:
+        self._con.execute(db.job_queue.delete())
+
+    def delete(self, *, job_name: str) -> None:
+        self._con.execute(db.job_queue.delete().where(db.job_queue.c.name == job_name))
+
+    def pop(self, n: int) -> typing.List[Job]:
+        jobs = self._con.execute(
             db.job_queue.select().order_by(db.job_queue.c.added).limit(n)
         )
-        job_names = [row.job_name for row in result]
-        deleted = self._con.execute(
-            db.job_queue.delete().where(db.job_queue.c.job_name.in_(job_names))
+        job_names = [job.name for job in jobs]
+        self._con.execute(
+            db.job_queue.delete().where(db.job_queue.c.name.in_(job_names))
         )
-        logger.debug(f"Deleted {deleted.rowcount} rows from job_queue.")
-        return set(job_names)
+        return job_names

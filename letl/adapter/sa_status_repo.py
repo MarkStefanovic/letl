@@ -88,14 +88,14 @@ class SAStatusRepo(domain.StatusRepo):
         stmt = (
             db.status
             .select()
-            .where(db.status.c.job_name == job_name)
+            .where(db.status.c.name == job_name)
             .order_by(sa.desc(db.status.c.started))
             .limit(1)
         )
         # fmt: on
         result = self._con.execute(stmt).first()
         return domain.JobStatus(
-            job_name=result.job_name,
+            job_name=result.name,
             status=result.status,
             started=result.started,
             ended=result.ended,
@@ -110,6 +110,6 @@ class SAStatusRepo(domain.StatusRepo):
         stmt = (
             sa.select(sa.func.max(db.status.c.ended).label("ts"))
             .where(db.status.c.status == "success")
-            .where(db.status.c.job_name == job_name)
+            .where(db.status.c.name == job_name)
         )
         return self._con.execute(stmt).scalar()

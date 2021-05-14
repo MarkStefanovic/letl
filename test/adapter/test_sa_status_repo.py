@@ -50,7 +50,7 @@ def test_start_happy_path(in_memory_db: sa.engine.Engine):
 
         sql = "SELECT * FROM etl.status WHERE batch_id = 'batch_1' AND job_name = 'test_job_1'"
         result = con.execute(sql).first()
-        assert result.job_name == "test_job_1"
+        assert result.name == "test_job_1"
         assert result.status == "running"
         assert result.started is not None
         assert result.ended is None

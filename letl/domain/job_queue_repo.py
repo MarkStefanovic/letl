@@ -3,12 +3,16 @@ import typing
 
 from letl.domain.job import Job
 
-__all__ = ("JobQueue",)
+__all__ = ("JobQueueRepo",)
 
 
-class JobQueue(abc.ABC):
+class JobQueueRepo(abc.ABC):
     @abc.abstractmethod
     def add(self, *, job_name: str) -> int:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def all(self) -> typing.List[str]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -16,5 +20,5 @@ class JobQueue(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def pop(self, n: int) -> typing.Set[Job]:
+    def pop(self, n: int) -> typing.List[str]:
         raise NotImplementedError
