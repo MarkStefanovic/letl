@@ -20,7 +20,7 @@ mod_logger = domain.root_logger.getChild("sa_logger")
 
 @dataclasses.dataclass(frozen=True)
 class LogMessage:
-    job_name: str
+    name: str
     level: domain.LogLevel
     message: str
 
@@ -47,7 +47,7 @@ class SALogger(pykka.ThreadingActor):
         msg = domain.error.parse_exception(exception_value).text()
         if self._repo:
             self._repo.add(
-                job_name=f"{self.__class__.__name__}.on_failure",
+                name=f"{self.__class__.__name__}.on_failure",
                 level=domain.LogLevel.Error,
                 message=msg,
             )
@@ -73,7 +73,7 @@ class SALogger(pykka.ThreadingActor):
     def on_receive(self, message: LogMessage) -> None:
         if self._repo:
             self._repo.add(
-                job_name=message.job_name,
+                name=message.name,
                 level=message.level,
                 message=message.message,
             )
@@ -95,11 +95,11 @@ class JobLogger(domain.Logger):
     def __init__(
         self,
         *,
-        job_name: typing.Optional[str],
+        name: typing.Optional[str],
         sql_logger: pykka.ActorRef,
         log_to_console: bool = False,
     ):
-        self._job_name = job_name
+        self._job_name = name
         self._sql_logger = sql_logger
         self._log_to_console = log_to_console
 
@@ -111,6 +111,12 @@ class JobLogger(domain.Logger):
                 f"{datetime.datetime.now().strftime('%H:%M:%S')} ({level.value!s}) "
                 f"[{self._job_name}]: {message}"
             )
+
+    def debug(self, /, message: str) -> None:
+        return self._log(
+            level=domain.LogLevel.Debug,
+            message=message,
+        )
 
     def error(self, /, message: str) -> None:
         return self._log(
@@ -141,9 +147,7 @@ if __name__ == "__main__":
 
     logger_actor = SALogger.start(db_uri=db_uri)
     # proxy = logger_actor.proxy()
-    job_logger = JobLogger(
-        job_name="test", sql_logger=logger_actor, log_to_console=True
-    )
+    job_logger = JobLogger(name="test", sql_logger=logger_actor, log_to_console=True)
     job_logger.info("test")
     time.sleep(1)
     job_logger.info("test2")

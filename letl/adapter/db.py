@@ -23,8 +23,8 @@ log = sa.Table(
         sa.Sequence(f"{SCHEMA}.log_id_seq"),
         primary_key=True,
     ),
+    sa.Column("name", sa.String, nullable=False),
     sa.Column("level", sa.String, nullable=False),
-    sa.Column("job_name", sa.String, nullable=False),
     sa.Column("ts", sa.DateTime, nullable=False),
     sa.Column("message", sa.String, nullable=False),
 )

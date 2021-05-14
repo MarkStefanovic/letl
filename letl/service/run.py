@@ -50,6 +50,7 @@ def run(
         else:
             time.sleep(tick_seconds)
         elapsed_seconds = (datetime.datetime.now() - start).total_seconds()
+    pykka.ActorRegistry.stop_all()
 
 
 
