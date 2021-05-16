@@ -20,5 +20,9 @@ class JobQueueRepo(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def delete(self, *, job_name: str) -> None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def pop(self, n: int) -> typing.List[str]:
         raise NotImplementedError
