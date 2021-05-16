@@ -8,10 +8,10 @@ import typing
 import pykka
 import sqlalchemy as sa
 
-from letl import adapter, domain
+from letl import adapter, domain, Logger
 
 __all__ = (
-    "JobLogger",
+    "NamedLogger",
     "SALogger",
 )
 
@@ -86,12 +86,9 @@ class SALogger(pykka.ThreadingActor):
             self._logger.debug("Closing connection...")
             self._con.close()
             self._logger.info("Connection closed.")
-        self._con = None
-        self._engine = None
-        self._repo = None
 
 
-class JobLogger(domain.Logger):
+class NamedLogger(domain.Logger):
     def __init__(
         self,
         *,
@@ -99,17 +96,17 @@ class JobLogger(domain.Logger):
         sql_logger: pykka.ActorRef,
         log_to_console: bool = False,
     ):
-        self._job_name = name
+        self._name = name
         self._sql_logger = sql_logger
         self._log_to_console = log_to_console
 
     def _log(self, *, level: domain.LogLevel, message: str) -> None:
-        msg = LogMessage(job_name=self._job_name, level=level, message=message)
+        msg = LogMessage(name=self._name, level=level, message=message)
         self._sql_logger.tell(msg)
         if self._log_to_console:
             print(
                 f"{datetime.datetime.now().strftime('%H:%M:%S')} ({level.value!s}) "
-                f"[{self._job_name}]: {message}"
+                f"[{self._name}]: {message}"
             )
 
     def debug(self, /, message: str) -> None:
@@ -124,7 +121,7 @@ class JobLogger(domain.Logger):
             message=message,
         )
 
-    def exception(self, /, e: Exception) -> None:
+    def exception(self, /, e: BaseException) -> None:
         msg = domain.error.parse_exception(e).text()
         self._log(level=domain.LogLevel.Error, message=msg)
 
@@ -132,6 +129,13 @@ class JobLogger(domain.Logger):
         return self._log(
             level=domain.LogLevel.Info,
             message=message,
+        )
+
+    def new(self, *, name: str) -> Logger:
+        return NamedLogger(
+            name=name,
+            sql_logger=self._sql_logger,
+            log_to_console=self._log_to_console,
         )
 
 
@@ -147,7 +151,7 @@ if __name__ == "__main__":
 
     logger_actor = SALogger.start(db_uri=db_uri)
     # proxy = logger_actor.proxy()
-    job_logger = JobLogger(name="test", sql_logger=logger_actor, log_to_console=True)
+    job_logger = NamedLogger(name="test", sql_logger=logger_actor, log_to_console=True)
     job_logger.info("test")
     time.sleep(1)
     job_logger.info("test2")

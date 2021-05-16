@@ -21,8 +21,8 @@ class Schedule(abc.ABC):
 
 @dataclasses.dataclass(frozen=True)
 class EveryXSeconds(Schedule):
-    start: datetime.datetime
     seconds: int
+    start: typing.Optional[datetime.datetime] = None
     start_month: int = 1
     end_month: int = 12
     start_monthday: int = 1
@@ -50,9 +50,12 @@ class EveryXSeconds(Schedule):
             return False
         else:
             if last_completed is None:
-                return now >= self.start
+                if self.start:
+                    return now >= self.start
+                else:
+                    return True
             else:
-                seconds_since_last_run = (last_completed - self.start).total_seconds()
+                seconds_since_last_run = (now - last_completed).total_seconds()
                 if seconds_since_last_run > self.seconds:
                     next_due = now
                 else:
@@ -62,68 +65,6 @@ class EveryXSeconds(Schedule):
                     return True
                 else:
                     return False
-
-    #
-    # def __init__(
-    #     self,
-    #     *,
-    #     start: datetime.datetime,
-    #     seconds: int,
-    #     start_month: int = 1,
-    #     end_month: int = 12,
-    #     start_monthday: int = 1,
-    #     end_monthday: int = 31,
-    #     start_weekday: int = 1,
-    #     end_weekday: int = 7,
-    #     start_hour: int = 0,
-    #     start_minute: int = 0,
-    #     end_hour: int = 23,
-    #     end_minute: int = 59,
-    # ):
-    #     self._start = start
-    #     self._seconds = seconds
-    #     self._start_month = start_month
-    #     self._end_month = end_month
-    #     self._start_monthday = start_monthday
-    #     self._end_monthday = end_monthday
-    #     self._start_weekday = start_weekday
-    #     self._end_weekday = end_weekday
-    #     self._start_hour = start_hour
-    #     self._start_minute = start_minute
-    #     self._end_hour = end_hour
-    #     self._end_minute = end_minute
-
-    # def is_due(self, *, last_completed: typing.Optional[datetime.datetime]) -> bool:
-    #     now = datetime.datetime.now()
-    #     if now.month < self._start_month or now.month > self._end_month:
-    #         return False
-    #     elif now.day < self._start_monthday or now.day > self._end_monthday:
-    #         return False
-    #     elif (
-    #         now.isoweekday() < self._start_weekday
-    #         or now.isoweekday() > self._end_weekday
-    #     ):
-    #         return False
-    #     elif now.hour < self._start_hour or now.hour > self._end_hour:
-    #         return False
-    #     elif now.minute < self._start_minute or now.minute > self._end_minute:
-    #         return False
-    #     else:
-    #         if last_completed is None:
-    #             return now >= self._start
-    #         else:
-    #             seconds_since_last_run = (last_completed - self._start).total_seconds()
-    #             if seconds_since_last_run > self._seconds:
-    #                 next_due = now
-    #             else:
-    #                 next_due = last_completed + datetime.timedelta(
-    #                     seconds=self._seconds
-    #                 )
-    #
-    #             if datetime.datetime.now() >= next_due:
-    #                 return True
-    #             else:
-    #                 return False
 
 
 if __name__ == "__main__":
