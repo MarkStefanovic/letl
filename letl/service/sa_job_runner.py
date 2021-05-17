@@ -14,54 +14,50 @@ class SAJobRunner(pykka.ThreadingActor):
     def __init__(
         self,
         *,
-        db_uri: str,
+        engine: sa.engine.Engine,
         scheduler: pykka.ActorRef,
         logger: domain.Logger,
-        echo_sql: bool = False,
     ):
         super().__init__()
 
-        self._db_uri = db_uri
+        self._engine = engine
         self._scheduler = scheduler
         self._logger = logger
-        self._echo_sql = echo_sql
 
-        self._engine: typing.Optional[sa.engine.Engine] = None
-        self._con: typing.Optional[sa.engine.Connection] = None
-        self._status_repo: typing.Optional[domain.StatusRepo] = None
+        self._status_repo = adapter.SAStatusRepo(engine=self._engine)
+        self._status = "Initializing"
 
     def on_start(self) -> None:
-        self._engine = sa.engine.create_engine(self._db_uri, echo=self._echo_sql)
-        self._con = self._engine.connect()
-
-        if self._db_uri == "sqlite://":
-            self._con.execute("ATTACH ':memory:' as etl")
-            adapter.db.create_tables(engine=self._engine)
-
-        self._status_repo = adapter.SAStatusRepo(con=self._con)
         while True:
-            jobs: domain.Job = self._scheduler.ask(1, block=True)
+            self._status = "Asking scheduler for a job to run"
+            self._logger.debug(self._status)
+            jobs: typing.List[domain.Job] = self._scheduler.ask(1, block=True)
             if jobs:
                 job = jobs[0]
-                self._logger.debug(f"running job: {job}")
+                config = job.config
+                config["etl_engine"] = self._engine
+                self._status = f"Running {job.job_name}"
+                self._logger.info(self._status)
                 job_status_id: int = self._status_repo.start(job_name=job.job_name)
                 result: domain.JobResult = run_job_with_retry(
                     job=job,
+                    config=config,
                     logger=self._logger.new(name=job.job_name),
                     retries_so_far=0,
                 )
+                self._status = f"Saving results of {job.job_name} to database"
+                self._logger.debug(self._status)
                 if result.is_error:
-                    self._status_repo.error(
-                        job_status_id=job_status_id,
-                        error=result.error_message,
-                    )
+                    err_msg = result.error_message or "No error message was provided."
+                    self._status_repo.error(job_status_id=job_status_id, error=err_msg)
+                    self._logger.error(err_msg)
                 else:
                     self._status_repo.done(job_status_id=job_status_id)
+                    self._logger.info(f"{job.job_name} finished.")
             else:
                 time.sleep(1)
-
-    def on_stop(self) -> None:
-        self._cleanup()
+            self._status = "Waiting for a job to appear in the queue"
+            self._logger.debug(self._status)
 
     def on_failure(
         self,
@@ -69,32 +65,24 @@ class SAJobRunner(pykka.ThreadingActor):
         exception_value: BaseException,
         traceback: TracebackType,
     ) -> None:
-        print(exception_value)
-        self._cleanup()
-
-    # def on_receive(self, message: domain.Job) -> domain.JobStatus:
-    #     job = self._scheduler.ask(1, block=True)[0]
-    #     return run_job(job=job)
-
-    def _cleanup(self) -> None:
-        self._logger.debug("Cleaning up...")
-        if self._con:
-            self._con.close()
+        self._logger.exception(exception_value)
 
 
 # noinspection PyBroadException
 def run_job_with_retry(
     job: domain.Job,
+    config: typing.Dict[str, typing.Any],
     logger: domain.Logger,
     retries_so_far: int = 0,
 ) -> domain.JobResult:
     try:
-        job.run(job.config, logger)
+        job.run(config, logger)
         return domain.JobResult.success()
     except Exception as e:
         if job.retries > retries_so_far:
             return run_job_with_retry(
                 job=job,
+                config=config,
                 logger=logger,
                 retries_so_far=retries_so_far + 1,
             )

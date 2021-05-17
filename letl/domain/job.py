@@ -15,6 +15,6 @@ class Job:
     timeout_seconds: int
     dependencies: typing.Set[str]
     retries: int
-    run: typing.Callable[[typing.Mapping[str, typing.Any], log.Logger], None]
-    config: typing.Mapping[str, typing.Any]
+    run: typing.Callable[[typing.Dict[str, typing.Any], log.Logger], None]
+    config: typing.Dict[str, typing.Any]
     schedule: typing.List[Schedule]
