@@ -1,5 +1,3 @@
-import typing
-
 import sqlalchemy as sa
 
 __all__ = (
@@ -20,7 +18,7 @@ log = sa.Table(
     sa.Column(
         "id",
         sa.Integer,
-        sa.Sequence(f"{SCHEMA}.log_id_seq"),
+        # sa.Sequence(f"{SCHEMA}.log_id_seq"),
         primary_key=True,
     ),
     sa.Column("name", sa.String, nullable=False),
@@ -66,7 +64,7 @@ status = sa.Table(
     sa.Column(
         "id",
         sa.Integer,
-        sa.Sequence(f"{SCHEMA}.status_id_seq"),
+        # sa.Sequence(f"{SCHEMA}.status_id_seq"),
         primary_key=True,
     ),
     sa.Column("job_name", sa.String, nullable=True),
@@ -78,5 +76,8 @@ status = sa.Table(
 )
 
 
-def create_tables(*, engine: typing.Optional[sa.engine.Engine]) -> None:
-    metadata.create_all(engine)
+def create_tables(*, engine: sa.engine.Engine) -> None:
+    with engine.begin() as con:
+        # metadata.schema = None
+        # if etl_db_uri == "sqlite://":
+        metadata.create_all(con)

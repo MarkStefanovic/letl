@@ -26,16 +26,12 @@ class LogMessage:
 
 
 class SALogger(pykka.ThreadingActor):
-    def __init__(self, *, db_uri: str):
+    def __init__(self, *, engine: sa.engine.Engine):
         super().__init__()
-
-        self._db_uri = db_uri
 
         self._logger = mod_logger.getChild(self.__class__.__name__)
 
-        self._engine: typing.Optional[sa.engine.Engine] = None
-        self._con: typing.Optional[sa.engine.Connection] = None
-        self._repo: typing.Optional[domain.LogRepo] = None
+        self._repo: typing.Optional[domain.LogRepo] = adapter.SALogRepo(engine=engine)
 
     def on_failure(
         self,
@@ -45,47 +41,22 @@ class SALogger(pykka.ThreadingActor):
     ) -> None:
         self._logger.debug("on_failure(...) called")
         msg = domain.error.parse_exception(exception_value).text()
-        if self._repo:
-            self._repo.add(
-                name=f"{self.__class__.__name__}.on_failure",
-                level=domain.LogLevel.Error,
-                message=msg,
-            )
-
-        self._cleanup()
+        self._repo.add(
+            name=f"{self.__class__.__name__}.on_failure",
+            level=domain.LogLevel.Error,
+            message=msg,
+        )
 
     def on_start(self) -> None:
         self._logger.debug("on_start() called")
-        self._engine = sa.create_engine(self._db_uri, echo=False)
-        self._con = self._engine.connect()
         self._logger.info("Connected.")
 
-        if self._db_uri == "sqlite://":
-            self._con.execute("ATTACH ':memory:' as etl")
-            adapter.db.create_tables(engine=self._engine)
-
-        self._repo = adapter.SALogRepo(con=self._con)
-
-    def on_stop(self) -> None:
-        self._logger.debug("on_stop() called")
-        self._cleanup()
-
     def on_receive(self, message: LogMessage) -> None:
-        if self._repo:
-            self._repo.add(
-                name=message.name,
-                level=message.level,
-                message=message.message,
-            )
-        else:
-            self._logger.error("repo has not been instantiated.")
-
-    def _cleanup(self):
-        self._logger.debug("_cleanup() called")
-        if self._con:
-            self._logger.debug("Closing connection...")
-            self._con.close()
-            self._logger.info("Connection closed.")
+        self._repo.add(
+            name=message.name,
+            level=message.level,
+            message=message.message,
+        )
 
 
 class NamedLogger(domain.Logger):
@@ -95,19 +66,33 @@ class NamedLogger(domain.Logger):
         name: typing.Optional[str],
         sql_logger: pykka.ActorRef,
         log_to_console: bool = False,
+        min_log_level: domain.LogLevel = domain.LogLevel.Info,
     ):
         self._name = name
         self._sql_logger = sql_logger
         self._log_to_console = log_to_console
+        self._min_log_level = min_log_level
 
     def _log(self, *, level: domain.LogLevel, message: str) -> None:
-        msg = LogMessage(name=self._name, level=level, message=message)
-        self._sql_logger.tell(msg)
-        if self._log_to_console:
-            print(
-                f"{datetime.datetime.now().strftime('%H:%M:%S')} ({level.value!s}) "
-                f"[{self._name}]: {message}"
-            )
+        if level == domain.LogLevel.Error:
+            over_threshold = True
+        elif level == domain.LogLevel.Info and self._min_log_level in (
+            domain.LogLevel.Info,
+            domain.LogLevel.Error,
+        ):
+            over_threshold = True
+        elif self._min_log_level == domain.LogLevel.Debug:
+            over_threshold = True
+        else:
+            over_threshold = False
+        if over_threshold:
+            msg = LogMessage(name=self._name, level=level, message=message)
+            self._sql_logger.tell(msg)
+            if self._log_to_console:
+                print(
+                    f"{datetime.datetime.now().strftime('%H:%M:%S')} ({level.value!s}) "
+                    f"[{self._name}]: {message}"
+                )
 
     def debug(self, /, message: str) -> None:
         return self._log(
@@ -131,11 +116,18 @@ class NamedLogger(domain.Logger):
             message=message,
         )
 
-    def new(self, *, name: str) -> Logger:
+    def new(
+        self,
+        *,
+        name: str,
+        log_to_console: typing.Optional[bool] = None,
+        min_log_level: typing.Optional[domain.LogLevel] = None,
+    ) -> Logger:
         return NamedLogger(
             name=name,
             sql_logger=self._sql_logger,
-            log_to_console=self._log_to_console,
+            log_to_console=log_to_console or self._log_to_console,
+            min_log_level=min_log_level or self._min_log_level,
         )
 
 

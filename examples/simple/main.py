@@ -1,20 +1,25 @@
-import datetime
 import time
 import typing
 
 import letl
 
 
-def job1(config: typing.Mapping[str, typing.Any], logger: letl.Logger) -> None:
+def job1(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
     logger.info("Job1 running...")
     time.sleep(10)
     logger.info("Job1 finished.")
 
 
-def job2(config: typing.Mapping[str, typing.Any], logger: letl.Logger) -> None:
+def job2(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
     logger.info("Job2 running...")
     time.sleep(10)
     logger.info("Job2 finished.")
+
+
+def job3(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
+    logger.info("Job2 running...")
+    time.sleep(2)
+    raise Exception("I'm a bad job.")
 
 
 def main() -> None:
@@ -37,13 +42,22 @@ def main() -> None:
             config={},
             schedule=[letl.EveryXSeconds(seconds=30)],
         ),
+        letl.Job(
+            job_name=f"Job3",
+            timeout_seconds=5,
+            dependencies=set(),
+            retries=1,
+            run=job3,
+            config={},
+            schedule=[letl.EveryXSeconds(seconds=30)],
+        ),
     ]
     letl.start(
         jobs=jobs,
-        etl_db_uri="sqlite://",
+        etl_db_uri="sqlite:///temp.db",
+        # etl_db_uri="sqlite://",
         max_processes=3,
         log_to_console=True,
-        tick_seconds=1,
     )
 
 

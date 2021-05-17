@@ -1,2 +1,2 @@
-from letl.service import jobs
+from letl.service import admin
 from letl.service.run import *
