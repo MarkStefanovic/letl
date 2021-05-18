@@ -1,7 +1,11 @@
+import json
+import pathlib
+import sys
 import time
 import typing
 
 import letl
+import sqlalchemy as sa
 
 
 def job1(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
@@ -12,17 +16,26 @@ def job1(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
 
 def job2(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
     logger.info("Job2 running...")
-    time.sleep(10)
+    with config["etl_engine"].begin() as con:
+        time.sleep(10)
     logger.info("Job2 finished.")
 
 
 def job3(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
     logger.info("Job2 running...")
-    time.sleep(2)
-    raise Exception("I'm a bad job.")
+    with config["etl_engine"].begin() as con:
+        time.sleep(2)
+        raise Exception("I'm a bad job.")
 
 
 def main() -> None:
+    config_fp = pathlib.Path(sys.argv[0]).parent / "config.json"
+    with config_fp.open("r") as fh:
+        config = json.load(fh)
+
+    engine = sa.create_engine(config["db_uri"])
+    letl.db.create_tables(engine=engine, recreate=True)
+
     jobs = [
         letl.Job(
             job_name=f"Job1",
@@ -54,10 +67,12 @@ def main() -> None:
     ]
     letl.start(
         jobs=jobs,
-        etl_db_uri="sqlite:///temp.db",
+        etl_db_uri=config["db_uri"],
         # etl_db_uri="sqlite://",
-        max_processes=3,
+        max_threads=3,
         log_to_console=True,
+        log_sql_to_console=True,
+        min_log_level=letl.LogLevel.Debug,
     )
 
 

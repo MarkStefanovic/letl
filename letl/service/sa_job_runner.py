@@ -14,20 +14,21 @@ class SAJobRunner(pykka.ThreadingActor):
     def __init__(
         self,
         *,
-        engine: sa.engine.Engine,
+        etl_db_uri: str,
         scheduler: pykka.ActorRef,
         logger: domain.Logger,
     ):
         super().__init__()
 
-        self._engine = engine
+        self._etl_db_uri = etl_db_uri
         self._scheduler = scheduler
         self._logger = logger
 
-        self._status_repo = adapter.SAStatusRepo(engine=self._engine)
         self._status = "Initializing"
 
     def on_start(self) -> None:
+        engine = sa.create_engine(self._etl_db_uri)
+        status_repo = adapter.SAStatusRepo(engine=engine)
         while True:
             self._status = "Asking scheduler for a job to run"
             self._logger.debug(self._status)
@@ -35,11 +36,10 @@ class SAJobRunner(pykka.ThreadingActor):
             if jobs:
                 job = jobs[0]
                 config = job.config
-                config["etl_engine"] = self._engine
                 self._status = f"Running {job.job_name}"
                 self._logger.info(self._status)
-                job_status_id: int = self._status_repo.start(job_name=job.job_name)
-                result: domain.JobResult = run_job_with_retry(
+                job_status_id: int = status_repo.start(job_name=job.job_name)
+                result = run_job_with_retry(
                     job=job,
                     config=config,
                     logger=self._logger.new(name=job.job_name),
@@ -49,10 +49,10 @@ class SAJobRunner(pykka.ThreadingActor):
                 self._logger.debug(self._status)
                 if result.is_error:
                     err_msg = result.error_message or "No error message was provided."
-                    self._status_repo.error(job_status_id=job_status_id, error=err_msg)
+                    status_repo.error(job_status_id=job_status_id, error=err_msg)
                     self._logger.error(err_msg)
                 else:
-                    self._status_repo.done(job_status_id=job_status_id)
+                    status_repo.done(job_status_id=job_status_id)
                     self._logger.info(f"{job.job_name} finished.")
             else:
                 time.sleep(1)
@@ -76,13 +76,13 @@ def run_job_with_retry(
     retries_so_far: int = 0,
 ) -> domain.JobResult:
     try:
-        job.run(config, logger)
+        job.run(job.config, logger)
         return domain.JobResult.success()
     except Exception as e:
         if job.retries > retries_so_far:
             return run_job_with_retry(
                 job=job,
-                config=config,
+                config=job.config,
                 logger=logger,
                 retries_so_far=retries_so_far + 1,
             )

@@ -73,6 +73,8 @@ class NamedLogger(domain.Logger):
         self._log_to_console = log_to_console
         self._min_log_level = min_log_level
 
+        self._recent_messages: typing.Dict[str, datetime.datetime] = {}
+
     def _log(self, *, level: domain.LogLevel, message: str) -> None:
         if level == domain.LogLevel.Error:
             over_threshold = True
@@ -86,13 +88,34 @@ class NamedLogger(domain.Logger):
         else:
             over_threshold = False
         if over_threshold:
-            msg = LogMessage(name=self._name, level=level, message=message)
-            self._sql_logger.tell(msg)
-            if self._log_to_console:
-                print(
-                    f"{datetime.datetime.now().strftime('%H:%M:%S')} ({level.value!s}) "
-                    f"[{self._name}]: {message}"
-                )
+            self._recent_messages = {
+                msg: last_sent
+                for msg, last_sent in sorted(
+                    self._recent_messages.items(),
+                    key=lambda tup: tup[1],
+                    reverse=True,
+                )[:30]
+            }
+            if message in self._recent_messages:
+                last_sent = self._recent_messages[message]
+                if last_sent:
+                    seconds_since_last_sent: typing.Optional[float] = (
+                        datetime.datetime.now() - last_sent
+                    ).total_seconds()
+                else:
+                    seconds_since_last_sent = None
+            else:
+                seconds_since_last_sent = None
+
+            if not seconds_since_last_sent or seconds_since_last_sent > 10:
+                self._recent_messages[message] = datetime.datetime.now()
+                msg = LogMessage(name=self._name, level=level, message=message)
+                self._sql_logger.tell(msg)
+                if self._log_to_console:
+                    print(
+                        f"{datetime.datetime.now().strftime('%H:%M:%S')} ({level.value!s}) "
+                        f"[{self._name}]: {message}"
+                    )
 
     def debug(self, /, message: str) -> None:
         return self._log(

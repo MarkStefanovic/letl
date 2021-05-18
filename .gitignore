@@ -13,3 +13,4 @@ __pycache__
 NOTES.md
 poetry.toml
 poetry.lock
+config.json
