@@ -15,8 +15,9 @@ def start(
     *,
     jobs: typing.List[domain.Job],
     etl_db_uri: str,
-    max_processes: int = 5,
+    max_threads: int = 5,
     min_log_level: domain.LogLevel = domain.LogLevel.Info,
+    log_sql_to_console: bool = False,
     log_to_console: bool = False,
     days_logs_to_keep: int = 3,
 ) -> None:
@@ -30,11 +31,10 @@ def start(
     try:
         engine = sa.create_engine(
             etl_db_uri,
-            echo=log_to_console,
-            echo_pool=log_to_console,
-            pool_size=max_processes + 3,
+            echo=log_sql_to_console,
+            echo_pool=log_sql_to_console,
+            # pool_size=max_threads + 3,
             future=True,
-            # connect_args={"check_same_thread": False},  # needed for sqlite
         )
 
         adapter.db.create_tables(engine=engine)
@@ -46,7 +46,7 @@ def start(
             log_to_console=log_to_console,
             min_log_level=min_log_level,
         )
-        print("Logger started.")
+        logger.info("Logger started.")
         job_queue_actor = sa_job_queue.SAJobQueue.start(
             engine=engine,
             logger=logger.new(name="JobQueue"),
@@ -57,14 +57,14 @@ def start(
             job_queue=job_queue_actor,
             logger=logger.new(name="Scheduler"),
         )
-        print("Scheduler started.")
-        for i in range(max_processes):
+        logger.info("Scheduler started.")
+        for i in range(max_threads):
             sa_job_runner.SAJobRunner.start(
-                engine=engine,
+                etl_db_uri=etl_db_uri,
                 scheduler=scheduler_actor,
                 logger=logger.new(name=f"JobRunner{i}"),
             )
-        print("JobRunners started.")
+        logger.info("JobRunners started.")
 
         while True:
             actors = reg.get_all()
@@ -77,7 +77,7 @@ def start(
                 )
             }
             if dead_actors := status.get("Dead"):
-                print(f"Dead Actors: {', '.join(dead_actors)}.")
+                logger.debug(f"Dead Actors: {', '.join(dead_actors)}.")
             time.sleep(10)
             print("Tick")
     finally:

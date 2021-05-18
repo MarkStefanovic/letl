@@ -18,7 +18,7 @@ log = sa.Table(
     sa.Column(
         "id",
         sa.Integer,
-        # sa.Sequence(f"{SCHEMA}.log_id_seq"),
+        sa.Sequence(f"{SCHEMA}.log_id_seq"),
         primary_key=True,
     ),
     sa.Column("name", sa.String, nullable=False),
@@ -58,13 +58,31 @@ job_queue = sa.Table(
 #     sa.Column("updated", sa.DateTime, nullable=True),
 # )
 
+job_history = sa.Table(
+    "job_history",
+    metadata,
+    sa.Column(
+        "id",
+        sa.Integer,
+        sa.Sequence(f"{SCHEMA}.job_history_id_seq"),
+        primary_key=True,
+    ),
+    sa.Column("status_id", sa.Integer, nullable=False),
+    sa.Column("job_name", sa.String, nullable=True),
+    sa.Column("status", sa.String, nullable=False),
+    sa.Column("started", sa.DateTime, nullable=False),
+    sa.Column("ended", sa.DateTime, nullable=True),
+    sa.Column("error_message", sa.String, nullable=True),
+    sa.Column("skipped_reason", sa.String, nullable=True),
+)
+
 status = sa.Table(
     "status",
     metadata,
     sa.Column(
         "id",
         sa.Integer,
-        # sa.Sequence(f"{SCHEMA}.status_id_seq"),
+        sa.Sequence(f"{SCHEMA}.status_id_seq"),
         primary_key=True,
     ),
     sa.Column("job_name", sa.String, nullable=True),
@@ -76,8 +94,8 @@ status = sa.Table(
 )
 
 
-def create_tables(*, engine: sa.engine.Engine) -> None:
+def create_tables(*, engine: sa.engine.Engine, recreate: bool = False) -> None:
     with engine.begin() as con:
-        # metadata.schema = None
-        # if etl_db_uri == "sqlite://":
+        if recreate:
+            metadata.drop_all(con)
         metadata.create_all(con)
