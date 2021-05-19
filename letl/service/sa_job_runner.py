@@ -1,88 +1,60 @@
-import time
 import typing
-from types import TracebackType
 
 import pykka
 import sqlalchemy as sa
 
 from letl import adapter, domain
 
-__all__ = ("SAJobRunner",)
+__all__ = ("run_job",)
 
 
-class SAJobRunner(pykka.ThreadingActor):
-    def __init__(
-        self,
-        *,
-        etl_db_uri: str,
-        scheduler: pykka.ActorRef,
-        logger: domain.Logger,
-    ):
-        super().__init__()
-
-        self._etl_db_uri = etl_db_uri
-        self._scheduler = scheduler
-        self._logger = logger
-
-        self._status = "Initializing"
-
-    def on_start(self) -> None:
-        engine = sa.create_engine(self._etl_db_uri)
-        status_repo = adapter.SAStatusRepo(engine=engine)
-        while True:
-            self._status = "Asking scheduler for a job to run"
-            self._logger.debug(self._status)
-            jobs: typing.List[domain.Job] = self._scheduler.ask(1, block=True)
-            if jobs:
-                job = jobs[0]
-                config = job.config
-                self._status = f"Running {job.job_name}"
-                self._logger.info(self._status)
-                job_status_id: int = status_repo.start(job_name=job.job_name)
-                result = run_job_with_retry(
-                    job=job,
-                    config=config,
-                    logger=self._logger.new(name=job.job_name),
-                    retries_so_far=0,
-                )
-                self._status = f"Saving results of {job.job_name} to database"
-                self._logger.debug(self._status)
-                if result.is_error:
-                    err_msg = result.error_message or "No error message was provided."
-                    status_repo.error(job_status_id=job_status_id, error=err_msg)
-                    self._logger.error(err_msg)
-                else:
-                    status_repo.done(job_status_id=job_status_id)
-                    self._logger.info(f"{job.job_name} finished.")
-            else:
-                time.sleep(1)
-            self._status = "Waiting for a job to appear in the queue"
-            self._logger.debug(self._status)
-
-    def on_failure(
-        self,
-        exception_type: typing.Type[BaseException],
-        exception_value: BaseException,
-        traceback: TracebackType,
-    ) -> None:
-        self._logger.exception(exception_value)
+def run_job(
+    *,
+    engine: sa.engine.Engine,
+    job_queue: pykka.ActorProxy,
+    # jobs: typing.List[domain.Job],
+    logger: domain.Logger,
+) -> None:
+    status_repo = adapter.SAStatusRepo(engine=engine)
+    # job_queue_repo = adapter.SAJobQueueRepo(engine=engine)
+    # job_map = {job.job_name: job for job in jobs}
+    # pending_jobs = job_queue.pop(1)
+    job = job_queue.pop().get()
+    if job:
+        logger.info(f"Running {job.job_name}")
+        # TODO run run_job_with_retry in separate process and wait to complete, timeout = job.timeout
+        status_repo.start(job_name=job.job_name)
+        result = run_job_with_retry(
+            job=job,
+            logger=logger.new(name=job.job_name),
+            retries_so_far=0,
+        )
+        logger.debug(f"Saving results of {job.job_name} to database")
+        if result.is_error:
+            err_msg = result.error_message or "No error message was provided."
+            status_repo.error(job_name=job.job_name, error=err_msg)
+            logger.error(err_msg)
+        else:
+            status_repo.done(job_name=job.job_name)
+            logger.info(f"{job.job_name} finished.")
 
 
 # noinspection PyBroadException
 def run_job_with_retry(
     job: domain.Job,
-    config: typing.Dict[str, typing.Any],
     logger: domain.Logger,
     retries_so_far: int = 0,
 ) -> domain.JobResult:
     try:
-        job.run(job.config, logger)
-        return domain.JobResult.success()
+        result = job.run(job.config, logger)
+        if result is None:
+            return domain.JobResult.success()
+        else:
+            return result
     except Exception as e:
         if job.retries > retries_so_far:
             return run_job_with_retry(
                 job=job,
-                config=job.config,
                 logger=logger,
                 retries_so_far=retries_so_far + 1,
             )

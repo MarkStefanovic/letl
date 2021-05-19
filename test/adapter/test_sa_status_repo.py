@@ -29,7 +29,7 @@ def test_latest_status_happy_path(in_memory_db: sa.engine.Engine):
         check_row_count(con=con, expected_rows=5)
 
         repo = letl.SAStatusRepo(con=con)
-        result = repo.latest_status(job_name="test_job_1")
+        result = repo.status(job_name="test_job_1")
         assert result == letl.JobStatus(
             job_name="test_job_1",
             status=letl.Status.Success,

@@ -14,15 +14,16 @@ class SAJobQueue(pykka.ThreadingActor):
         self,
         *,
         engine: sa.engine.Engine,
+        jobs: typing.List[domain.Job],
         logger: domain.Logger,
-        echo_sql: bool = False,
     ):
         super().__init__()
 
+        self._engine = engine
+        self._jobs = {job.job_name: job for job in jobs}
         self._logger = logger
-        self._echo_sql = echo_sql
 
-        self._repo = adapter.SAJobQueueRepo(engine=engine)
+        self._repo = adapter.SAJobQueueRepo(engine=self._engine)
 
     def on_failure(
         self,
@@ -34,7 +35,12 @@ class SAJobQueue(pykka.ThreadingActor):
 
     def add(self, *, job_name: str) -> None:
         self._logger.debug(f"{job_name} added to queue.")
-        self._repo.add(job_name=job_name)
+        repo = adapter.SAJobQueueRepo(engine=self._engine)
+        repo.add(job_name=job_name)
 
-    def pop(self, n: int) -> typing.List[str]:
-        return self._repo.pop(n)
+    def pop(self) -> typing.Optional[domain.Job]:
+        result = self._repo.pop(1)
+        if result:
+            job_name = result[0]
+            return self._jobs[job_name]
+        return None

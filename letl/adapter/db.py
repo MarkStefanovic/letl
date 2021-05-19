@@ -67,7 +67,6 @@ job_history = sa.Table(
         sa.Sequence(f"{SCHEMA}.job_history_id_seq"),
         primary_key=True,
     ),
-    sa.Column("status_id", sa.Integer, nullable=False),
     sa.Column("job_name", sa.String, nullable=True),
     sa.Column("status", sa.String, nullable=False),
     sa.Column("started", sa.DateTime, nullable=False),
@@ -79,13 +78,7 @@ job_history = sa.Table(
 status = sa.Table(
     "status",
     metadata,
-    sa.Column(
-        "id",
-        sa.Integer,
-        sa.Sequence(f"{SCHEMA}.status_id_seq"),
-        primary_key=True,
-    ),
-    sa.Column("job_name", sa.String, nullable=True),
+    sa.Column("job_name", sa.String, primary_key=True),
     sa.Column("status", sa.String, nullable=False),
     sa.Column("started", sa.DateTime, nullable=False),
     sa.Column("ended", sa.DateTime, nullable=True),

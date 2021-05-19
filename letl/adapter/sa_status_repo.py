@@ -13,45 +13,45 @@ class SAStatusRepo(domain.StatusRepo):
     def __init__(self, *, engine: sa.engine.Engine):
         self._engine = engine
 
-    def done(self, *, job_status_id: int) -> None:
+    def done(self, *, job_name: str) -> None:
         with self._engine.begin() as con:
             con.execute(
                 db.status.update()
-                .where(db.status.c.id == job_status_id)
+                .where(db.status.c.job_name == job_name)
                 .values(
                     status=domain.Status.Success.value,
                     ended=datetime.datetime.now(),
                 )
             )
-        append_to_history(engine=self._engine, job_status_id=job_status_id)
+        append_to_history(engine=self._engine, job_name=job_name)
 
-    def error(self, *, job_status_id: int, error: str) -> None:
+    def error(self, *, job_name: str, error: str) -> None:
         with self._engine.begin() as con:
             con.execute(
                 db.status.update()
-                .where(db.status.c.id == job_status_id)
+                .where(db.status.c.job_name == job_name)
                 .values(
                     status=domain.Status.Error.value,
                     error_message=error,
                     ended=datetime.datetime.now(),
                 )
             )
-        append_to_history(engine=self._engine, job_status_id=job_status_id)
+        append_to_history(engine=self._engine, job_name=job_name)
 
-    def skipped(self, *, job_status_id: int, reason: str) -> None:
+    def skipped(self, *, job_name: str, reason: str) -> None:
         with self._engine.begin() as con:
             con.execute(
                 db.status.update()
-                .where(db.status.c.id == job_status_id)
+                .where(db.status.c.job_name == job_name)
                 .values(
                     status=domain.Status.Skipped.value,
                     skipped_reason=reason,
                     ended=datetime.datetime.now(),
                 )
             )
-        append_to_history(engine=self._engine, job_status_id=job_status_id)
+        append_to_history(engine=self._engine, job_name=job_name)
 
-    def start(self, *, job_name: str) -> int:
+    def start(self, *, job_name: str) -> None:
         with self._engine.begin() as con:
             con.execute(db.status.delete().where(db.status.c.job_name == job_name))
             stmt = db.status.insert().values(
@@ -63,7 +63,10 @@ class SAStatusRepo(domain.StatusRepo):
                 skipped_reason=None,
             )
             result = con.execute(stmt)
-            return result.inserted_primary_key[0]
+
+    def delete(self, *, job_name: str) -> None:
+        with self._engine.begin() as con:
+            con.execute(db.status.delete().where(db.status.c.job_name == job_name))
 
     def delete_before(self, /, ts: datetime.datetime) -> None:
         with self._engine.begin() as con:
@@ -72,49 +75,38 @@ class SAStatusRepo(domain.StatusRepo):
             stmt = db.status.delete().where(db.status.c.started <= ts)
             con.execute(stmt)
 
-    def latest_status(self, *, job_name: str) -> typing.Optional[domain.JobStatus]:
+    def status(self, *, job_name: str) -> typing.Optional[domain.JobStatus]:
         with self._engine.begin() as con:
             # fmt: off
             stmt = (
                 db.status
                 .select()
-                .where(db.status.c.name == job_name)
-                .order_by(sa.desc(db.status.c.started))
-                .limit(1)
+                .where(db.status.c.job_name == job_name)
             )
             # fmt: on
             result = con.execute(stmt).first()
-            return domain.JobStatus(
-                job_name=result.name,
-                status=result.status,
-                started=result.started,
-                ended=result.ended,
-                skipped_reason=result.skipped_reason,
-                error_message=result.error_message,
-            )
-
-    def latest_completed_time(
-        self, *, job_name: str
-    ) -> typing.Optional[datetime.datetime]:
-        with self._engine.begin() as con:
-            stmt = (
-                sa.select(sa.func.max(db.status.c.ended).label("ts"))
-                .where(db.status.c.status == "success")
-                .where(db.status.c.job_name == job_name)
-            )
-            return con.execute(stmt).scalar()
+            if result:
+                return domain.JobStatus(
+                    job_name=result.job_name,
+                    status=result.status,
+                    started=result.started,
+                    ended=result.ended,
+                    skipped_reason=result.skipped_reason,
+                    error_message=result.error_message,
+                )
+            else:
+                return None
 
 
-def append_to_history(*, engine: sa.engine.Engine, job_status_id: int) -> None:
+def append_to_history(*, engine: sa.engine.Engine, job_name: str) -> None:
     with engine.begin() as con:
         result = con.execute(
-            db.status.select().where(db.status.c.id == job_status_id)
+            db.status.select().where(db.status.c.job_name == job_name)
         ).first()
         if result:
             con.execute(
                 db.job_history.insert().values(
-                    status_id=job_status_id,
-                    job_name=result.name,
+                    job_name=job_name,
                     status=result.status,
                     started=result.started,
                     ended=result.ended,
