@@ -7,6 +7,7 @@ from letl.domain.log_level import *
 from letl.domain.log_repo import *
 from letl.domain.logger import *
 from letl.domain.job_queue_repo import *
+from letl.domain.repeat import *
 from letl.domain.schedule import *
 from letl.domain.scheduler import *
 from letl.domain.status import *

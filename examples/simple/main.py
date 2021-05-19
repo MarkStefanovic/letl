@@ -10,22 +10,20 @@ import sqlalchemy as sa
 
 def job1(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
     logger.info("Job1 running...")
-    time.sleep(10)
+    time.sleep(12)
     logger.info("Job1 finished.")
 
 
 def job2(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
     logger.info("Job2 running...")
-    with config["etl_engine"].begin() as con:
-        time.sleep(10)
+    time.sleep(19)
     logger.info("Job2 finished.")
 
 
 def job3(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
     logger.info("Job2 running...")
-    with config["etl_engine"].begin() as con:
-        time.sleep(2)
-        raise Exception("I'm a bad job.")
+    time.sleep(2)
+    raise Exception("I'm a bad job.")
 
 
 def main() -> None:
@@ -69,9 +67,9 @@ def main() -> None:
         jobs=jobs,
         etl_db_uri=config["db_uri"],
         # etl_db_uri="sqlite://",
-        max_threads=3,
+        max_job_runners=3,
         log_to_console=True,
-        log_sql_to_console=True,
+        log_sql_to_console=False,
         min_log_level=letl.LogLevel.Debug,
     )
 
