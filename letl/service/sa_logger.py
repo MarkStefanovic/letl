@@ -1,4 +1,3 @@
-import dataclasses
 import datetime
 import logging
 import threading
@@ -18,20 +17,13 @@ __all__ = (
 mod_logger = domain.root_logger.getChild("sa_logger")
 
 
-@dataclasses.dataclass(frozen=True)
-class LogMessage:
-    name: str
-    level: domain.LogLevel
-    message: str
-
-
 class SALogger(pykka.ThreadingActor):
     def __init__(self, *, engine: sa.engine.Engine):
         super().__init__()
 
         self._logger = mod_logger.getChild(self.__class__.__name__)
 
-        self._repo: typing.Optional[domain.LogRepo] = adapter.SALogRepo(engine=engine)
+        self._repo = adapter.SALogRepo(engine=engine)
 
     def on_failure(
         self,
@@ -51,9 +43,9 @@ class SALogger(pykka.ThreadingActor):
         self._logger.debug("on_start() called")
         self._logger.info("Connected.")
 
-    def on_receive(self, message: LogMessage) -> None:
+    def on_receive(self, message: domain.LogMessage) -> None:
         self._repo.add(
-            name=message.name,
+            name=message.logger_name,
             level=message.level,
             message=message.message,
         )
@@ -63,7 +55,7 @@ class NamedLogger(domain.Logger):
     def __init__(
         self,
         *,
-        name: typing.Optional[str],
+        name: str,
         sql_logger: pykka.ActorRef,
         log_to_console: bool = False,
         min_log_level: domain.LogLevel = domain.LogLevel.Info,
@@ -75,7 +67,13 @@ class NamedLogger(domain.Logger):
 
         self._recent_messages: typing.Dict[str, datetime.datetime] = {}
 
-    def _log(self, *, level: domain.LogLevel, message: str) -> None:
+    def _log(
+        self,
+        *,
+        level: domain.LogLevel,
+        message: str,
+        ts: typing.Optional[datetime.datetime] = None,
+    ) -> None:
         if level == domain.LogLevel.Error:
             over_threshold = True
         elif level == domain.LogLevel.Info and self._min_log_level in (
@@ -109,7 +107,11 @@ class NamedLogger(domain.Logger):
 
             if not seconds_since_last_sent or seconds_since_last_sent > 10:
                 self._recent_messages[message] = datetime.datetime.now()
-                msg = LogMessage(name=self._name, level=level, message=message)
+                if ts is None:
+                    ts = datetime.datetime.now()
+                msg = domain.LogMessage(
+                    logger_name=self._name, level=level, message=message, ts=ts
+                )
                 self._sql_logger.tell(msg)
                 if self._log_to_console:
                     print(
@@ -117,23 +119,31 @@ class NamedLogger(domain.Logger):
                         f"[{self._name}]: {message}"
                     )
 
-    def debug(self, /, message: str) -> None:
+    def debug(
+        self, /, message: str, *, ts: typing.Optional[datetime.datetime] = None
+    ) -> None:
         return self._log(
             level=domain.LogLevel.Debug,
             message=message,
         )
 
-    def error(self, /, message: str) -> None:
+    def error(
+        self, /, message: str, *, ts: typing.Optional[datetime.datetime] = None
+    ) -> None:
         return self._log(
             level=domain.LogLevel.Error,
             message=message,
         )
 
-    def exception(self, /, e: BaseException) -> None:
+    def exception(
+        self, /, e: BaseException, *, ts: typing.Optional[datetime.datetime] = None
+    ) -> None:
         msg = domain.error.parse_exception(e).text()
         self._log(level=domain.LogLevel.Error, message=msg)
 
-    def info(self, /, message: str) -> None:
+    def info(
+        self, /, message: str, *, ts: typing.Optional[datetime.datetime] = None
+    ) -> None:
         return self._log(
             level=domain.LogLevel.Info,
             message=message,
