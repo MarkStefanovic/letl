@@ -15,7 +15,7 @@ def job1(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
 
 
 def job2(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
-    logger.info("Job2 running...")
+    logger.info("Job2 running (and is going to timeout)...")
     time.sleep(19)
     logger.info("Job2 finished.")
 
@@ -37,7 +37,7 @@ def main() -> None:
     jobs = [
         letl.Job(
             job_name=f"Job1",
-            timeout_seconds=5,
+            timeout_seconds=20,
             dependencies=set(),
             retries=1,
             run=job1,
@@ -55,7 +55,7 @@ def main() -> None:
         ),
         letl.Job(
             job_name=f"Job3",
-            timeout_seconds=5,
+            timeout_seconds=20,
             dependencies=set(),
             retries=1,
             run=job3,

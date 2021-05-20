@@ -1,4 +1,3 @@
-import datetime
 import typing
 
 import pykka
@@ -29,9 +28,12 @@ def update_queue(
                 last_completed = status.ended
         else:
             last_completed = None
-        logger.debug(
-            f"{job_name} was last completed at {'Never' if not last_completed else last_completed.strftime('%Y-%m-%d %H:%M:%S')}."
-        )
+        if last_completed:
+            logger.debug(
+                f"{job_name} was last attempted at {last_completed.strftime('%Y-%m-%d %H:%M:%S')}."
+            )
+        else:
+            logger.debug(f"{job_name} has not been run before.")
         if any(s.is_due(last_completed=last_completed) for s in job.schedule):
             # TODO if the job has dependencies, check if any have been completed since the job was last
             #  completed, if not, then skip

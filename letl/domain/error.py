@@ -27,8 +27,12 @@ class ExceptionInfo:
     frames: typing.List[Frame]
 
     def text(self) -> str:
-        frames = "\n  > ".join(str(f) for f in self.frames)
-        return f"{self.error_type!s}: {self.error_msg!s}\n  > " + frames
+        if self.frames:
+            prefix = "\n  > "
+            frames = prefix + prefix.join(str(f) for f in self.frames)
+        else:
+            frames = ""
+        return f"{self.error_type!s}: {self.error_msg!s}" + frames
 
 
 def parse_exception(e: BaseException) -> ExceptionInfo:
@@ -58,6 +62,12 @@ class DuplicateJobNames(LetlError):
     def __init__(self, jobs: typing.Set[str]):
         self.message = "The following job names are duplicated: " + ", ".join(jobs)
         super().__init__(self.message)
+
+
+class JobTimedOut(LetlError):
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
 
 
 class MissingJobImplementation(LetlError):

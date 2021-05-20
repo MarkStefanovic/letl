@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import datetime
 import typing
 
 from letl.domain.log_level import LogLevel
@@ -10,19 +11,27 @@ __all__ = ("Logger",)
 
 class Logger(abc.ABC):
     @abc.abstractmethod
-    def debug(self, /, message: str) -> None:
+    def debug(
+        self, /, message: str, *, ts: typing.Optional[datetime.datetime] = None
+    ) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def error(self, /, message: str) -> None:
+    def error(
+        self, /, message: str, *, ts: typing.Optional[datetime.datetime] = None
+    ) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def exception(self, /, e: BaseException) -> None:
+    def exception(
+        self, /, e: BaseException, *, ts: typing.Optional[datetime.datetime] = None
+    ) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def info(self, /, message: str) -> None:
+    def info(
+        self, /, message: str, *, ts: typing.Optional[datetime.datetime] = None
+    ) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod

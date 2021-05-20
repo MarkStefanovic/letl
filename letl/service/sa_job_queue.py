@@ -44,3 +44,11 @@ class SAJobQueue(pykka.ThreadingActor):
             job_name = result[0]
             return self._jobs[job_name]
         return None
+
+
+# class JobQueue:
+#     def __init__(self, *, actor: pykka.ActorRef):
+#         self._actor = actor
+#
+#     def add(self, /, name: str) -> None:
+#         self._actor.ask(message=msg, block=True)

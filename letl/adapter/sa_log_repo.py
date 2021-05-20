@@ -1,4 +1,5 @@
 import datetime
+import typing
 
 import sqlalchemy as sa
 
@@ -13,7 +14,14 @@ class SALogRepo(domain.LogRepo):
     def __init__(self, *, engine: sa.engine.Engine):
         self._engine = engine
 
-    def add(self, *, name: str, level: log_level.LogLevel, message: str) -> None:
+    def add(
+        self,
+        *,
+        name: str,
+        level: log_level.LogLevel,
+        message: str,
+        ts: typing.Optional[datetime.datetime] = None,
+    ) -> None:
         with self._engine.begin() as con:
             stmt = db.log.insert().values(
                 name=name,

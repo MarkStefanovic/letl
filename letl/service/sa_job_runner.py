@@ -1,4 +1,7 @@
+import datetime
+import multiprocessing as mp
 import typing
+from queue import Empty
 
 import pykka
 import sqlalchemy as sa
@@ -12,26 +15,20 @@ def run_job(
     *,
     engine: sa.engine.Engine,
     job_queue: pykka.ActorProxy,
-    # jobs: typing.List[domain.Job],
     logger: domain.Logger,
+    log_to_console: bool = False,
 ) -> None:
     status_repo = adapter.SAStatusRepo(engine=engine)
-    # job_queue_repo = adapter.SAJobQueueRepo(engine=engine)
-    # job_map = {job.job_name: job for job in jobs}
-    # pending_jobs = job_queue.pop(1)
     job = job_queue.pop().get()
     if job:
         logger.info(f"Running {job.job_name}")
-        # TODO run run_job_with_retry in separate process and wait to complete, timeout = job.timeout
         status_repo.start(job_name=job.job_name)
-        result = run_job_with_retry(
-            job=job,
-            logger=logger.new(name=job.job_name),
-            retries_so_far=0,
+        result = run_job_in_process(
+            logger=logger.new(name=job.job_name), job=job, log_to_console=log_to_console
         )
         logger.debug(f"Saving results of {job.job_name} to database")
         if result.is_error:
-            err_msg = result.error_message or "No error message was provided."
+            err_msg = result.error_message or " o error message was provided."
             status_repo.error(job_name=job.job_name, error=err_msg)
             logger.error(err_msg)
         else:
@@ -39,24 +36,118 @@ def run_job(
             logger.info(f"{job.job_name} finished.")
 
 
+def run_job_in_process(
+    *,
+    logger: domain.Logger,
+    job: domain.Job,
+    log_to_console: bool,
+) -> domain.JobResult:
+    queue_logger = QueueLogger(job_name=job.job_name, log_to_console=log_to_console)
+    try:
+        result_queue = mp.Queue()
+        p = mp.Process(
+            target=run_job_with_retry,
+            args=(result_queue, job, queue_logger, 0),
+        )
+        p.start()
+        result = result_queue.get(block=True, timeout=job.timeout_seconds)
+        p.join()
+        result_queue.close()
+        return result
+    except Empty:
+        return domain.JobResult.error(
+            domain.error.JobTimedOut(
+                f"The job timed out after {job.timeout_seconds} seconds."
+            )
+        )
+    except Exception as e:
+        return domain.JobResult.error(e)
+    finally:
+        job_logger = logger.new(name=job.job_name)
+        for message in queue_logger.messages:
+            if message.is_debug:
+                job_logger.debug(message.message)
+            elif message.is_error:
+                job_logger.error(message.message)
+            elif message.is_info:
+                job_logger.info(message.message)
+
+
 # noinspection PyBroadException
 def run_job_with_retry(
+    result_queue: mp.Queue,
     job: domain.Job,
     logger: domain.Logger,
     retries_so_far: int = 0,
-) -> domain.JobResult:
+) -> None:
     try:
         result = job.run(job.config, logger)
         if result is None:
-            return domain.JobResult.success()
-        else:
-            return result
+            result = domain.JobResult.success()
+        result_queue.put(result)
     except Exception as e:
         if job.retries > retries_so_far:
-            return run_job_with_retry(
+            run_job_with_retry(
+                result_queue=result_queue,
                 job=job,
                 logger=logger,
                 retries_so_far=retries_so_far + 1,
             )
         else:
-            return domain.JobResult.error(e)
+            result_queue.put(domain.JobResult.error(e))
+
+
+class QueueLogger(domain.Logger):
+    def __init__(self, *, job_name: str, log_to_console: bool = False):
+        self._job_name = job_name
+        self._log_to_console = log_to_console
+
+        self._messages: typing.List[domain.LogMessage] = []
+
+    def debug(
+        self, /, message: str, *, ts: typing.Optional[datetime.datetime] = None
+    ) -> None:
+        self._log(level=domain.LogLevel.Debug, message=message)
+
+    def error(
+        self, /, message: str, *, ts: typing.Optional[datetime.datetime] = None
+    ) -> None:
+        self._log(level=domain.LogLevel.Debug, message=message)
+
+    def exception(
+        self, /, e: BaseException, *, ts: typing.Optional[datetime.datetime] = None
+    ) -> None:
+        message = domain.error.parse_exception(e).text()
+        self._log(level=domain.LogLevel.Error, message=message)
+
+    def info(
+        self, /, message: str, *, ts: typing.Optional[datetime.datetime] = None
+    ) -> None:
+        self._log(level=domain.LogLevel.Debug, message=message)
+
+    @property
+    def messages(self) -> typing.List[domain.LogMessage]:
+        return self._messages
+
+    def new(
+        self,
+        *,
+        name: str,
+        log_to_console: typing.Optional[bool] = None,
+        min_log_level: typing.Optional[domain.LogLevel] = None,
+    ) -> domain.Logger:
+        return QueueLogger(
+            job_name=self._job_name,
+            log_to_console=self._log_to_console,
+        )
+
+    def _log(self, *, level: domain.LogLevel, message: str) -> None:
+        log_msg = domain.LogMessage(
+            logger_name=self._job_name,
+            level=level,
+            message=message,
+            ts=datetime.datetime.now(),
+        )
+        self._messages.append(log_msg)
+        if self._log_to_console:
+            print(f"[{self._job_name}] {log_msg!s}")
