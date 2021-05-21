@@ -16,33 +16,29 @@ def run_job(
     engine: sa.engine.Engine,
     job_queue: pykka.ActorProxy,
     logger: domain.Logger,
-    log_to_console: bool = False,
 ) -> None:
     status_repo = adapter.SAStatusRepo(engine=engine)
     job = job_queue.pop().get()
     if job:
-        logger.info(f"Running {job.job_name}")
+        logger.info(f"Starting [{job.job_name}]...")
         status_repo.start(job_name=job.job_name)
-        result = run_job_in_process(
-            logger=logger.new(name=job.job_name), job=job, log_to_console=log_to_console
-        )
-        logger.debug(f"Saving results of {job.job_name} to database")
+        result = run_job_in_process(logger=logger.new(name=job.job_name), job=job)
+        logger.debug(f"Saving results of [{job.job_name}] to database")
         if result.is_error:
             err_msg = result.error_message or " o error message was provided."
             status_repo.error(job_name=job.job_name, error=err_msg)
             logger.error(err_msg)
         else:
             status_repo.done(job_name=job.job_name)
-            logger.info(f"{job.job_name} finished.")
+            logger.info(f"[{job.job_name}] finished.")
 
 
 def run_job_in_process(
     *,
     logger: domain.Logger,
     job: domain.Job,
-    log_to_console: bool,
 ) -> domain.JobResult:
-    queue_logger = QueueLogger(job_name=job.job_name, log_to_console=log_to_console)
+    queue_logger = QueueLogger(job_name=job.job_name)
     try:
         result_queue = mp.Queue()
         p = mp.Process(
@@ -57,7 +53,7 @@ def run_job_in_process(
     except Empty:
         return domain.JobResult.error(
             domain.error.JobTimedOut(
-                f"The job timed out after {job.timeout_seconds} seconds."
+                f"The job, [{job.job_name}], timed out after {job.timeout_seconds} seconds."
             )
         )
     except Exception as e:
@@ -98,9 +94,8 @@ def run_job_with_retry(
 
 
 class QueueLogger(domain.Logger):
-    def __init__(self, *, job_name: str, log_to_console: bool = False):
+    def __init__(self, *, job_name: str):
         self._job_name = job_name
-        self._log_to_console = log_to_console
 
         self._messages: typing.List[domain.LogMessage] = []
 
@@ -136,10 +131,7 @@ class QueueLogger(domain.Logger):
         log_to_console: typing.Optional[bool] = None,
         min_log_level: typing.Optional[domain.LogLevel] = None,
     ) -> domain.Logger:
-        return QueueLogger(
-            job_name=self._job_name,
-            log_to_console=self._log_to_console,
-        )
+        return QueueLogger(job_name=self._job_name)
 
     def _log(self, *, level: domain.LogLevel, message: str) -> None:
         log_msg = domain.LogMessage(
@@ -149,5 +141,3 @@ class QueueLogger(domain.Logger):
             ts=datetime.datetime.now(),
         )
         self._messages.append(log_msg)
-        if self._log_to_console:
-            print(f"[{self._job_name}] {log_msg!s}")

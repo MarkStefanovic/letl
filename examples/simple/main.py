@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 
 def job1(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
-    logger.info("Job1 running...")
+    logger.info("Job1 is a happy, simple job...")
     time.sleep(12)
     logger.info("Job1 finished.")
 
@@ -21,7 +21,13 @@ def job2(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
 
 
 def job3(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
-    logger.info("Job2 running...")
+    logger.info("Job3 will always fail...")
+    time.sleep(2)
+    raise Exception("I'm a bad job.")
+
+
+def job4(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
+    logger.info("Job4 depends on Job1, so it should always run after it.")
     time.sleep(2)
     raise Exception("I'm a bad job.")
 
@@ -35,6 +41,15 @@ def main() -> None:
     letl.db.create_tables(engine=engine, recreate=True)
 
     jobs = [
+        letl.Job(
+            job_name=f"Job4",
+            timeout_seconds=20,
+            dependencies={"Job1"},
+            retries=1,
+            run=job4,
+            config={},
+            schedule=[letl.EveryXSeconds(seconds=30)],
+        ),
         letl.Job(
             job_name=f"Job1",
             timeout_seconds=20,
