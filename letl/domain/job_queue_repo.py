@@ -12,7 +12,7 @@ class JobQueueRepo(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def all(self) -> typing.List[str]:
+    def all(self) -> typing.Set[str]:
         raise NotImplementedError
 
     @abc.abstractmethod

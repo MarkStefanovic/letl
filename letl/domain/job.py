@@ -21,4 +21,4 @@ class Job:
         typing.Optional[JobResult],
     ]
     config: typing.Dict[str, typing.Any]
-    schedule: typing.List[Schedule]
+    schedule: typing.Set[Schedule]

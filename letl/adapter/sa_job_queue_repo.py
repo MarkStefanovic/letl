@@ -30,10 +30,10 @@ class SAJobQueueRepo(domain.JobQueueRepo):
                 )
                 # return result.inserted_primary_key
 
-    def all(self) -> typing.List[str]:
+    def all(self) -> typing.Set[str]:
         with self._engine.begin() as con:
             jobs = con.execute(db.job_queue.select().order_by(db.job_queue.c.added))
-            return [job.job_name for job in jobs]
+            return {job.job_name for job in jobs}
 
     def clear(self) -> None:
         with self._engine.begin() as con:

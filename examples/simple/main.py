@@ -1,4 +1,5 @@
 import json
+import logging
 import pathlib
 import sys
 import time
@@ -33,6 +34,7 @@ def job4(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
 
 
 def main() -> None:
+
     config_fp = pathlib.Path(sys.argv[0]).parent / "config.json"
     with config_fp.open("r") as fh:
         config = json.load(fh)
@@ -90,4 +92,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig()
+    logging.getLogger("letl").setLevel(logging.DEBUG)
+
     main()

@@ -9,6 +9,10 @@ __all__ = ("StatusRepo",)
 
 class StatusRepo(abc.ABC):
     @abc.abstractmethod
+    def all(self) -> typing.Set[JobStatus]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def done(self, *, job_name: str) -> None:
         raise NotImplementedError
 
