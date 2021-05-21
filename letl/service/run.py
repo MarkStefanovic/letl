@@ -79,7 +79,6 @@ def start(
                 engine=engine,
                 job_queue=job_queue,
                 logger=logger.new(name=f"JobRunner{i}"),
-                log_to_console=log_to_console,
             )
             handles.append(job_handle)
 

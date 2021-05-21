@@ -2,6 +2,8 @@ import abc
 import datetime
 import typing
 
+from letl.domain.job_status import JobStatus
+
 __all__ = ("StatusRepo",)
 
 
@@ -31,5 +33,5 @@ class StatusRepo(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def status(self, *, job_name: str) -> datetime.datetime:
+    def status(self, *, job_name: str) -> typing.Optional[JobStatus]:
         raise NotImplementedError
