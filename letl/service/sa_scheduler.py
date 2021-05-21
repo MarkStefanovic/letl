@@ -55,7 +55,6 @@ def dependencies_have_run(
     job_last_run: typing.Optional[datetime.datetime],
     dependencies: typing.Set[str],
 ) -> bool:
-
     for dep in dependencies:
         dep_status = status_repo.status(job_name=dep)
         if dep_status:

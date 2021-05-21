@@ -13,6 +13,10 @@ class SAStatusRepo(domain.StatusRepo):
     def __init__(self, *, engine: sa.engine.Engine):
         self._engine = engine
 
+    def all(self) -> typing.Set[domain.JobStatus]:
+        with self._engine.begin() as con:
+            return {job_status for job_status in con.execute(db.status.select())}
+
     def done(self, *, job_name: str) -> None:
         with self._engine.begin() as con:
             con.execute(

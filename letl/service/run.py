@@ -37,7 +37,6 @@ def start(
             etl_db_uri,
             echo=log_sql_to_console,
             echo_pool=log_sql_to_console,
-            # pool_size=max_job_runners + 2,
             future=True,
         )
         print("Engine created.")
@@ -53,7 +52,11 @@ def start(
 
         adapter.db.create_tables(engine=engine)
 
-        # TODO clear etl status rows flagged as running at startup
+        admin.delete_orphan_jobs(
+            admin_engine=engine,
+            current_jobs=jobs,
+            logger=logger,
+        )
 
         job_queue = sa_job_queue.SAJobQueue.start(
             engine=engine,
