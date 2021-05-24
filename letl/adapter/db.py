@@ -7,7 +7,7 @@ __all__ = (
     "status",
 )
 
-SCHEMA = "etl"
+SCHEMA = "letl"
 
 metadata = sa.MetaData(schema=SCHEMA)
 

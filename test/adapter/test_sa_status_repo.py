@@ -1,12 +1,12 @@
 import datetime
 
-import letl
-import pytest
 import sqlalchemy as sa
+
+import letl
 
 
 def check_row_count(*, con: sa.engine.Connection, expected_rows: int) -> None:
-    sql = "SELECT COUNT(*) AS ct FROM etl.status"
+    sql = "SELECT COUNT(*) AS ct FROM letl.status"
     actual_rows = con.execute(sql).scalar()
     assert (
         actual_rows == expected_rows
@@ -16,7 +16,7 @@ def check_row_count(*, con: sa.engine.Connection, expected_rows: int) -> None:
 def test_latest_status_happy_path(in_memory_db: sa.engine.Engine):
     with in_memory_db.connect() as con:
         sql = """
-            INSERT INTO etl.status 
+            INSERT INTO letl.status 
                 (id, job_name, status, started, ended, error_message, skipped_reason)
             VALUES 
                 (1, 'test_job_1', 'success', '2010-01-01 03:00:00', '2010-01-01 04:00:00', NULL, NULL)
@@ -48,7 +48,7 @@ def test_start_happy_path(in_memory_db: sa.engine.Engine):
         result = repo.start(batch_id="batch_1", job_name="test_job_1")
         assert result > 0
 
-        sql = "SELECT * FROM etl.status WHERE batch_id = 'batch_1' AND job_name = 'test_job_1'"
+        sql = "SELECT * FROM letl.status WHERE batch_id = 'batch_1' AND job_name = 'test_job_1'"
         result = con.execute(sql).first()
         assert result.name == "test_job_1"
         assert result.status == "running"
