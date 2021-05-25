@@ -1,6 +1,9 @@
 import datetime
 import logging
+import multiprocessing as mp
+import sys
 import threading
+import traceback
 import types
 import typing
 
@@ -17,51 +20,17 @@ __all__ = (
 mod_logger = domain.root_logger.getChild("sa_logger")
 
 
-class SALogger(pykka.ThreadingActor):
-    def __init__(self, *, engine: sa.engine.Engine):
-        super().__init__()
-
-        self._logger = mod_logger.getChild(self.__class__.__name__)
-
-        self._repo = adapter.SALogRepo(engine=engine)
-
-    def on_failure(
-        self,
-        exception_type: typing.Type[BaseException],
-        exception_value: BaseException,
-        traceback: types.TracebackType,
-    ) -> None:
-        self._logger.debug("on_failure(...) called")
-        msg = domain.error.parse_exception(exception_value).text()
-        self._repo.add(
-            name=f"{self.__class__.__name__}.on_failure",
-            level=domain.LogLevel.Error,
-            message=msg,
-        )
-
-    def on_start(self) -> None:
-        self._logger.debug("on_start() called")
-        self._logger.info("Connected.")
-
-    def on_receive(self, message: domain.LogMessage) -> None:
-        self._repo.add(
-            name=message.logger_name,
-            level=message.level,
-            message=message.message,
-        )
-
-
 class NamedLogger(domain.Logger):
     def __init__(
         self,
         *,
         name: str,
-        sql_logger: pykka.ActorRef,
+        message_queue: mp.Queue,
         log_to_console: bool = False,
         min_log_level: domain.LogLevel = domain.LogLevel.Info,
     ):
         self._name = name
-        self._sql_logger = sql_logger
+        self._message_queue = message_queue
         self._log_to_console = log_to_console
         self._min_log_level = min_log_level
 
@@ -74,7 +43,6 @@ class NamedLogger(domain.Logger):
         message: str,
         ts: typing.Optional[datetime.datetime] = None,
     ) -> None:
-        last_actor_dead_msg: typing.Optional[datetime.datetime] = None
         if level == domain.LogLevel.Error:
             over_threshold = True
         elif level == domain.LogLevel.Info and self._min_log_level in (
@@ -113,20 +81,12 @@ class NamedLogger(domain.Logger):
                 msg = domain.LogMessage(
                     logger_name=self._name, level=level, message=message, ts=ts
                 )
+                # noinspection PyBroadException
                 try:
-                    self._sql_logger.tell(msg)
-                except pykka.ActorDeadError:
-                    if last_actor_dead_msg is None:
-                        show_actor_dead_msg = True
-                    elif (
-                        datetime.datetime.now() - last_actor_dead_msg
-                    ).total_seconds() > 30:
-                        show_actor_dead_msg = True
-                    else:
-                        show_actor_dead_msg = False
-                    if show_actor_dead_msg:
-                        print(f"The logger actor is dead! Printing to console instead.")
-                    print(msg)
+                    self._message_queue.put_nowait(msg)
+                except Exception as e:
+                    traceback.print_exc(file=sys.stderr)
+                    mod_logger.exception(e)
                 if self._log_to_console:
                     print(
                         f"{datetime.datetime.now().strftime('%H:%M:%S')} ({level.value!s}) "
@@ -172,10 +132,67 @@ class NamedLogger(domain.Logger):
     ) -> Logger:
         return NamedLogger(
             name=name,
-            sql_logger=self._sql_logger,
+            message_queue=self._message_queue,
             log_to_console=log_to_console or self._log_to_console,
             min_log_level=min_log_level or self._min_log_level,
         )
+
+
+class SALogger(pykka.ThreadingActor):
+    def __init__(self, *, engine: sa.engine.Engine):
+        super().__init__()
+
+        self._logger = mod_logger.getChild(self.__class__.__name__)
+
+        self._repo = adapter.SALogRepo(engine=engine)
+
+    def on_failure(
+        self,
+        exception_type: typing.Type[BaseException],
+        exception_value: BaseException,
+        traceback: types.TracebackType,
+    ) -> None:
+        self._logger.debug("on_failure(...) called")
+        msg = domain.error.parse_exception(exception_value).text()
+        self._repo.add(
+            name=f"{self.__class__.__name__}.on_failure",
+            level=domain.LogLevel.Error,
+            message=msg,
+        )
+
+    def on_start(self) -> None:
+        self._logger.debug("on_start() called")
+        self._logger.info("Connected.")
+
+    def on_receive(self, message: domain.LogMessage) -> None:
+        self._repo.add(
+            name=message.logger_name,
+            level=message.level,
+            message=message.message,
+        )
+
+
+class MPLogger:
+    def __init__(self, *, message_queue: mp.Queue, actor: pykka.ActorRef):
+        self._message_queue = message_queue
+        self._actor = actor
+
+        t = threading.Thread(target=self.start)
+        t.daemon = True
+        t.start()
+
+    def start(self):
+        while True:
+            # noinspection PyBroadException
+            try:
+                msg: domain.LogMessage = self._message_queue.get()
+                self._actor.tell(msg)
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except EOFError:
+                break
+            except:
+                traceback.print_exc(file=sys.stderr)
 
 
 if __name__ == "__main__":

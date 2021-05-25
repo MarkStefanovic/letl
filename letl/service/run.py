@@ -1,7 +1,7 @@
 import itertools
+import multiprocessing as mp
 import time
 import typing
-from multiprocessing import Queue  # noqa
 
 import pykka
 import sqlalchemy as sa
@@ -42,9 +42,14 @@ def start(
         print("Engine created.")
 
         log_actor = sa_logger.SALogger.start(engine=engine)
+        message_queue = mp.Queue(-1)  # -1 = infinite size
+        sa_logger.MPLogger(
+            message_queue=message_queue,
+            actor=log_actor,
+        )
         logger = sa_logger.NamedLogger(
             name="root",
-            sql_logger=log_actor,
+            message_queue=message_queue,
             log_to_console=log_to_console,
             min_log_level=min_log_level,
         )

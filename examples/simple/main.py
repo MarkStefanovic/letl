@@ -5,8 +5,9 @@ import sys
 import time
 import typing
 
-import letl
 import sqlalchemy as sa
+
+import letl
 
 
 def job1(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
@@ -50,7 +51,7 @@ def main() -> None:
             retries=1,
             run=job4,
             config={},
-            schedule=[letl.EveryXSeconds(seconds=30)],
+            schedule={letl.EveryXSeconds(seconds=30)},
         ),
         letl.Job(
             job_name=f"Job1",
@@ -59,7 +60,7 @@ def main() -> None:
             retries=1,
             run=job1,
             config={},
-            schedule=[letl.EveryXSeconds(seconds=30)],
+            schedule={letl.EveryXSeconds(seconds=30)},
         ),
         letl.Job(
             job_name=f"Job2",
@@ -68,7 +69,7 @@ def main() -> None:
             retries=1,
             run=job2,
             config={},
-            schedule=[letl.EveryXSeconds(seconds=30)],
+            schedule={letl.EveryXSeconds(seconds=30)},
         ),
         letl.Job(
             job_name=f"Job3",
@@ -77,7 +78,7 @@ def main() -> None:
             retries=1,
             run=job3,
             config={},
-            schedule=[letl.EveryXSeconds(seconds=30)],
+            schedule={letl.EveryXSeconds(seconds=30)},
         ),
     ]
     letl.start(
