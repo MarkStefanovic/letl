@@ -107,7 +107,7 @@ class QueueLogger(domain.Logger):
     def error(
         self, /, message: str, *, ts: typing.Optional[datetime.datetime] = None
     ) -> None:
-        self._log(level=domain.LogLevel.Debug, message=message)
+        self._log(level=domain.LogLevel.Error, message=message)
 
     def exception(
         self, /, e: BaseException, *, ts: typing.Optional[datetime.datetime] = None
@@ -118,7 +118,7 @@ class QueueLogger(domain.Logger):
     def info(
         self, /, message: str, *, ts: typing.Optional[datetime.datetime] = None
     ) -> None:
-        self._log(level=domain.LogLevel.Debug, message=message)
+        self._log(level=domain.LogLevel.Info, message=message)
 
     @property
     def messages(self) -> typing.List[domain.LogMessage]:
