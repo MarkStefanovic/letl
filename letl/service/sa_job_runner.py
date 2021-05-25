@@ -91,6 +91,7 @@ def run_job_with_retry(
             )
         else:
             result_queue.put(domain.JobResult.error(e))
+            raise
 
 
 class QueueLogger(domain.Logger):
