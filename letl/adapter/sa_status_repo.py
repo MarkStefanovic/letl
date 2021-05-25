@@ -15,7 +15,9 @@ class SAStatusRepo(domain.StatusRepo):
 
     def all(self) -> typing.Set[domain.JobStatus]:
         with self._engine.begin() as con:
-            return {job_status for job_status in con.execute(db.status.select())}
+            return {
+                map_row_to_domain(row=row) for row in con.execute(db.status.select())
+            }
 
     def done(self, *, job_name: str) -> None:
         with self._engine.begin() as con:
@@ -58,15 +60,16 @@ class SAStatusRepo(domain.StatusRepo):
     def start(self, *, job_name: str) -> None:
         with self._engine.begin() as con:
             con.execute(db.status.delete().where(db.status.c.job_name == job_name))
-            stmt = db.status.insert().values(
-                job_name=job_name,
-                status=domain.Status.Running.value,
-                started=datetime.datetime.now(),
-                ended=None,
-                error_message=None,
-                skipped_reason=None,
+            con.execute(
+                db.status.insert().values(
+                    job_name=job_name,
+                    status=domain.Status.Running.value,
+                    started=datetime.datetime.now(),
+                    ended=None,
+                    error_message=None,
+                    skipped_reason=None,
+                )
             )
-            result = con.execute(stmt)
 
     def delete(self, *, job_name: str) -> None:
         with self._engine.begin() as con:
@@ -90,14 +93,7 @@ class SAStatusRepo(domain.StatusRepo):
             # fmt: on
             result = con.execute(stmt).first()
             if result:
-                return domain.JobStatus(
-                    job_name=result.job_name,
-                    status=result.status,
-                    started=result.started,
-                    ended=result.ended,
-                    skipped_reason=result.skipped_reason,
-                    error_message=result.error_message,
-                )
+                return map_row_to_domain(row=result)
             else:
                 return None
 
@@ -118,3 +114,14 @@ def append_to_history(*, engine: sa.engine.Engine, job_name: str) -> None:
                     error_message=result.error_message,
                 )
             )
+
+
+def map_row_to_domain(*, row: sa.engine.row.RowProxy) -> domain.JobStatus:
+    return domain.JobStatus(
+        job_name=row.job_name,
+        status=row.status,
+        started=row.started,
+        ended=row.ended,
+        skipped_reason=row.skipped_reason,
+        error_message=row.error_message,
+    )
