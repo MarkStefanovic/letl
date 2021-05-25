@@ -1,7 +1,7 @@
 import itertools
-from multiprocessing import Queue  # noqa
 import time
 import typing
+from multiprocessing import Queue  # noqa
 
 import pykka
 import sqlalchemy as sa
@@ -100,7 +100,6 @@ def start(
             if dead_actors := status.get("Dead"):
                 logger.debug(f"Dead Actors: {', '.join(dead_actors)}.")
             time.sleep(10)
-            print("Tick")
     finally:
         # stop all repeating function
         for handle in handles:

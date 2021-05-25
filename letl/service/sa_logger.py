@@ -74,6 +74,7 @@ class NamedLogger(domain.Logger):
         message: str,
         ts: typing.Optional[datetime.datetime] = None,
     ) -> None:
+        last_actor_dead_msg: typing.Optional[datetime.datetime] = None
         if level == domain.LogLevel.Error:
             over_threshold = True
         elif level == domain.LogLevel.Info and self._min_log_level in (
@@ -112,7 +113,20 @@ class NamedLogger(domain.Logger):
                 msg = domain.LogMessage(
                     logger_name=self._name, level=level, message=message, ts=ts
                 )
-                self._sql_logger.tell(msg)
+                try:
+                    self._sql_logger.tell(msg)
+                except pykka.ActorDeadError:
+                    if last_actor_dead_msg is None:
+                        show_actor_dead_msg = True
+                    elif (
+                        datetime.datetime.now() - last_actor_dead_msg
+                    ).total_seconds() > 30:
+                        show_actor_dead_msg = True
+                    else:
+                        show_actor_dead_msg = False
+                    if show_actor_dead_msg:
+                        print(f"The logger actor is dead! Printing to console instead.")
+                    print(msg)
                 if self._log_to_console:
                     print(
                         f"{datetime.datetime.now().strftime('%H:%M:%S')} ({level.value!s}) "
