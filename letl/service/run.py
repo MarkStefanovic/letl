@@ -41,11 +41,12 @@ def start(
         )
         print("Engine created.")
 
-        log_actor = sa_logger.SALogger.start(engine=engine)
+        # log_actor = sa_logger.SALogger.start(engine=engine)
         message_queue = mp.Queue(-1)  # -1 = infinite size
         sa_logger.MPLogger(
             message_queue=message_queue,
-            actor=log_actor,
+            engine=engine,
+            # actor=log_actor,
         )
         logger = sa_logger.NamedLogger(
             name="root",

@@ -1,21 +1,15 @@
 import datetime
-import logging
 import multiprocessing as mp
 import sys
 import threading
 import traceback
-import types
 import typing
 
-import pykka
 import sqlalchemy as sa
 
 from letl import adapter, domain, Logger
 
-__all__ = (
-    "NamedLogger",
-    "SALogger",
-)
+__all__ = ("NamedLogger",)
 
 mod_logger = domain.root_logger.getChild("sa_logger")
 
@@ -138,44 +132,16 @@ class NamedLogger(domain.Logger):
         )
 
 
-class SALogger(pykka.ThreadingActor):
-    def __init__(self, *, engine: sa.engine.Engine):
-        super().__init__()
-
-        self._logger = mod_logger.getChild(self.__class__.__name__)
+class MPLogger:
+    def __init__(
+        self,
+        *,
+        message_queue: mp.Queue,
+        engine: sa.engine.Engine,
+    ):
+        self._message_queue = message_queue
 
         self._repo = adapter.SALogRepo(engine=engine)
-
-    def on_failure(
-        self,
-        exception_type: typing.Type[BaseException],
-        exception_value: BaseException,
-        traceback: types.TracebackType,
-    ) -> None:
-        self._logger.debug("on_failure(...) called")
-        msg = domain.error.parse_exception(exception_value).text()
-        self._repo.add(
-            name=f"{self.__class__.__name__}.on_failure",
-            level=domain.LogLevel.Error,
-            message=msg,
-        )
-
-    def on_start(self) -> None:
-        self._logger.debug("on_start() called")
-        self._logger.info("Connected.")
-
-    def on_receive(self, message: domain.LogMessage) -> None:
-        self._repo.add(
-            name=message.logger_name,
-            level=message.level,
-            message=message.message,
-        )
-
-
-class MPLogger:
-    def __init__(self, *, message_queue: mp.Queue, actor: pykka.ActorRef):
-        self._message_queue = message_queue
-        self._actor = actor
 
         t = threading.Thread(target=self.start)
         t.daemon = True
@@ -186,30 +152,15 @@ class MPLogger:
             # noinspection PyBroadException
             try:
                 msg: domain.LogMessage = self._message_queue.get()
-                self._actor.tell(msg)
+                self._repo.add(
+                    name=msg.logger_name,
+                    level=msg.level,
+                    message=msg.message,
+                    ts=msg.ts or datetime.datetime.now(),
+                )
             except (KeyboardInterrupt, SystemExit):
                 raise
             except EOFError:
                 break
             except:
                 traceback.print_exc(file=sys.stderr)
-
-
-if __name__ == "__main__":
-    import time
-
-    logging.basicConfig(level=logging.DEBUG)
-    logging.getLogger().setLevel(logging.DEBUG)
-    # logging.getLogger("sqlalchemy.engine.Engine").setLevel(logging.ERROR)
-    logging.getLogger("pykka").setLevel(logging.DEBUG)
-    print(threading.currentThread())
-    db_uri = "sqlite://"
-
-    logger_actor = SALogger.start(db_uri=db_uri)
-    # proxy = logger_actor.proxy()
-    job_logger = NamedLogger(name="test", sql_logger=logger_actor, log_to_console=True)
-    job_logger.info("test")
-    time.sleep(1)
-    job_logger.info("test2")
-    time.sleep(1)
-    logger_actor.stop()
