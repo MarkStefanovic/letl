@@ -39,15 +39,13 @@ def run_job_in_process(
     job: domain.Job,
 ) -> domain.JobResult:
     result_queue = mp.Queue()
+    p = mp.Process(
+        target=run_job_with_retry,
+        args=(result_queue, job, logger, 0),
+    )
     try:
-        p = mp.Process(
-            target=run_job_with_retry,
-            args=(result_queue, job, logger, 0),
-        )
         p.start()
         result = result_queue.get(block=True, timeout=job.timeout_seconds)
-        p.join()
-        result_queue.close()
         return result
     except Empty:
         return domain.JobResult.error(
@@ -57,6 +55,9 @@ def run_job_in_process(
         )
     except Exception as e:
         return domain.JobResult.error(e)
+    finally:
+        p.join()
+        result_queue.close()
 
 
 # noinspection PyBroadException
@@ -81,4 +82,3 @@ def run_job_with_retry(
             )
         else:
             result_queue.put(domain.JobResult.error(e))
-            result_queue.close()
