@@ -1,6 +1,7 @@
 import typing
 
 import sqlalchemy as sa
+
 from letl import adapter, domain
 
 __all__ = ("delete_orphan_jobs",)
@@ -51,11 +52,18 @@ def delete_orphan_jobs(
         job.job_name: job.schedule for job in current_jobs
     }
     for status in statuses:
-        job_schedule = schedules[status.job_name]
-        if not any(s.is_due(last_completed=status.ended) for s in job_schedule):
-            logger.debug(
-                f"Deleting [{status.job_name}] from that job_queue and status tables, as it is not "
-                f"currently supposed to be running."
+        job_schedule = schedules.get(status.job_name)
+        if job_schedule is None:
+            logger.info(
+                f"The job, [{status.job_name}], has no schedule associated with it."
             )
             job_queue_repo.delete(job_name=status.job_name)
             status_repo.delete(job_name=status.job_name)
+        else:
+            if not any(s.is_due(last_completed=status.ended) for s in job_schedule):
+                logger.debug(
+                    f"Deleting [{status.job_name}] from that job_queue and status tables, as it is not "
+                    f"currently supposed to be running."
+                )
+                job_queue_repo.delete(job_name=status.job_name)
+                status_repo.delete(job_name=status.job_name)
