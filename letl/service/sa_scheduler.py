@@ -45,15 +45,15 @@ def job_is_ready_to_run(
         if seconds_since_started < job.timeout_seconds:
             return False
 
-    if dependencies_have_run(
-        status_repo=status_repo,
-        job_last_run=last_completed,
-        dependencies=job.dependencies,
-    ):
-        if any(s.is_due(last_completed=last_completed) for s in job.schedule):
-            return True
+    if job.dependencies:
+        if not dependencies_have_run(
+            status_repo=status_repo,
+            job_last_run=last_completed,
+            dependencies=job.dependencies,
+        ):
+            return False
 
-    return False
+    return any(s.is_due(last_completed=last_completed) for s in job.schedule)
 
 
 def dependencies_have_run(
