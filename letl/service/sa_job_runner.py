@@ -22,10 +22,12 @@ def run_job(
     if job:
         logger.info(f"Starting [{job.job_name}]...")
         status_repo.start(job_name=job.job_name)
-        result = run_job_in_process(logger=logger.new(name=job.job_name), job=job)
+        result = run_job_in_process(
+            logger=logger.new(name=f"{logger.name}.{job.job_name}"), job=job
+        )
         logger.debug(f"Saving results of [{job.job_name}] to database")
         if result.is_error:
-            err_msg = result.error_message or " o error message was provided."
+            err_msg = result.error_message or "no error message was provided."
             status_repo.error(job_name=job.job_name, error=err_msg)
             logger.error(err_msg)
         else:

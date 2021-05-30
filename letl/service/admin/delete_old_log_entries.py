@@ -18,7 +18,7 @@ def delete_old_log_entries(etl_db_uri: str, days_to_keep: int = 3) -> domain.Job
         dependencies=set(),
         run=run,
         config={"etl_db_uri": etl_db_uri, "days_to_keep": days_to_keep},
-        schedule={domain.EveryXSeconds(seconds=3600 * 24)},
+        schedule={domain.Schedule.every_x_seconds(seconds=3600 * 24)},
     )
 
 

@@ -51,7 +51,7 @@ def main() -> None:
             retries=1,
             run=job4,
             config={},
-            schedule={letl.EveryXSeconds(seconds=30)},
+            schedule={letl.Schedule.every_x_seconds(seconds=30)},
         ),
         letl.Job(
             job_name=f"Job1",
@@ -60,7 +60,7 @@ def main() -> None:
             retries=1,
             run=job1,
             config={},
-            schedule={letl.EveryXSeconds(seconds=30)},
+            schedule={letl.Schedule.every_x_seconds(seconds=30)},
         ),
         letl.Job(
             job_name=f"Job2",
@@ -69,7 +69,7 @@ def main() -> None:
             retries=1,
             run=job2,
             config={},
-            schedule={letl.EveryXSeconds(seconds=30)},
+            schedule={letl.Schedule.every_x_seconds(seconds=30)},
         ),
         letl.Job(
             job_name=f"Job3",
@@ -78,22 +78,21 @@ def main() -> None:
             retries=1,
             run=job3,
             config={},
-            schedule={letl.EveryXSeconds(seconds=30)},
+            schedule={letl.Schedule.every_x_seconds(seconds=30)},
         ),
     ]
     letl.start(
         jobs=jobs,
         etl_db_uri=config["db_uri"],
-        # etl_db_uri="sqlite://",
         max_job_runners=3,
         log_to_console=True,
         log_sql_to_console=False,
-        min_log_level=letl.LogLevel.Debug,
+        min_log_level=letl.LogLevel.Info,
     )
 
 
 if __name__ == "__main__":
     logging.basicConfig()
-    logging.getLogger("letl").setLevel(logging.DEBUG)
+    logging.getLogger("letl").setLevel(logging.INFO)
 
     main()

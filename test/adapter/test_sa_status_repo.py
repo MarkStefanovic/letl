@@ -13,7 +13,7 @@ def check_row_count(*, con: sa.engine.Connection, expected_rows: int) -> None:
     ), f"Expected {expected_rows} rows, but got {actual_rows}."
 
 
-def test_latest_status_happy_path(in_memory_db: sa.engine.Engine):
+def test_latest_status_happy_path(in_memory_db: sa.engine.Engine) -> None:
     repo = letl.SAStatusRepo(engine=in_memory_db)
     with in_memory_db.connect() as con:
         sql = """
@@ -39,7 +39,7 @@ def test_latest_status_happy_path(in_memory_db: sa.engine.Engine):
         )
 
 
-def test_start_happy_path(in_memory_db: sa.engine.Engine):
+def test_start_happy_path(in_memory_db: sa.engine.Engine) -> None:
     repo = letl.SAStatusRepo(engine=in_memory_db)
     with in_memory_db.connect() as con:
         check_row_count(con=con, expected_rows=0)

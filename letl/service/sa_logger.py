@@ -117,6 +117,10 @@ class NamedLogger(domain.Logger):
             message=message,
         )
 
+    @property
+    def name(self) -> str:
+        return self._name
+
     def new(
         self,
         *,
@@ -147,7 +151,7 @@ class MPLogger:
         t.daemon = True
         t.start()
 
-    def start(self):
+    def start(self) -> None:
         while True:
             # noinspection PyBroadException
             try:

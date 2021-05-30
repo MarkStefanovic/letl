@@ -34,6 +34,11 @@ class Logger(abc.ABC):
     ) -> None:
         raise NotImplementedError
 
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        raise NotImplementedError
+
     @abc.abstractmethod
     def new(
         self,

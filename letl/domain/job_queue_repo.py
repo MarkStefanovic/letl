@@ -8,7 +8,7 @@ __all__ = ("JobQueueRepo",)
 
 class JobQueueRepo(abc.ABC):
     @abc.abstractmethod
-    def add(self, *, job_name: str) -> int:
+    def add(self, *, job_name: str) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod

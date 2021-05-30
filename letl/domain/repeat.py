@@ -7,7 +7,7 @@ __all__ = ("repeat",)
 def repeat(seconds: int, fn, **kwargs: typing.Any) -> typing.Callable[[], None]:
     stopped = threading.Event()
 
-    def loop():
+    def loop() -> None:
         while not stopped.wait(seconds):
             fn(**kwargs)
 
