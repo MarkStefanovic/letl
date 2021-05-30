@@ -34,9 +34,16 @@ def job_is_ready_to_run(
 ) -> bool:
     status = status_repo.status(job_name=job.job_name)
     if status:
-        last_completed = status.ended
+        last_started: typing.Optional[datetime.datetime] = status.started
+        last_completed: typing.Optional[datetime.datetime] = status.ended
     else:
+        last_started = None
         last_completed = None
+
+    if last_started and status and status.is_running:
+        seconds_since_started = (datetime.datetime.now() - last_started).total_seconds()
+        if seconds_since_started < job.timeout_seconds:
+            return False
 
     if dependencies_have_run(
         status_repo=status_repo,
