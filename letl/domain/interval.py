@@ -15,6 +15,7 @@ class Interval(abc.ABC):
     def every_x_seconds(*, seconds: int) -> Interval:
         return EveryXSeconds(seconds=seconds)
 
+    @property
     @abc.abstractmethod
     def description(self) -> str:
         raise NotImplementedError
@@ -25,8 +26,12 @@ class Interval(abc.ABC):
     ) -> datetime.datetime:
         raise NotImplementedError
 
+    def __str__(self) -> str:
+        return self.description
+
 
 class Daily(Interval):
+    @property
     def description(self) -> str:
         return "daily"
 
@@ -46,6 +51,7 @@ class EveryXSeconds(Interval):
     def __init__(self, *, seconds: int):
         self._seconds = seconds
 
+    @property
     def description(self) -> str:
         return f"every_x_seconds: {self._seconds}"
 

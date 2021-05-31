@@ -22,12 +22,14 @@ class JobQueue(domain.JobQueue):
         self._queue: typing.List[str] = []
 
     def add(self, *, job_name: str) -> None:
-        if job_name not in self._queue:
-            with self._lock:
+        with self._lock:
+            if job_name not in self._queue:
                 self._queue.append(job_name)
+        return None
 
     def pop(self) -> typing.Optional[domain.Job]:
-        if self._queue:
-            with self._lock:
+        with self._lock:
+            if self._queue:
                 job_name = self._queue.pop(0)
                 return self._jobs[job_name]
+        return None

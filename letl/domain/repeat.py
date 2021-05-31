@@ -4,7 +4,11 @@ import threading
 __all__ = ("repeat",)
 
 
-def repeat(seconds: int, fn, **kwargs: typing.Any) -> typing.Callable[[], None]:
+def repeat(  # type: ignore
+    seconds: int,
+    fn,
+    **kwargs: typing.Any,
+) -> typing.Callable[[], None]:
     stopped = threading.Event()
 
     def loop() -> None:
