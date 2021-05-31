@@ -1,13 +1,15 @@
-import itertools
 import multiprocessing as mp
 import time
 import typing
 
-import pykka
 import sqlalchemy as sa
 
 from letl import adapter, domain
-from letl.service import admin, sa_job_queue, sa_job_runner, sa_logger, sa_scheduler
+from letl.service import admin
+from letl.service.job_queue import JobQueue
+from letl.service.job_runner import run_job
+from letl.service.logger import NamedLogger
+from letl.service.scheduler import update_queue
 
 __all__ = ("start",)
 
@@ -30,7 +32,6 @@ def start(
     all_jobs = jobs + admin_jobs
     check_job_names_are_unique(jobs=all_jobs)
 
-    reg = pykka.ActorRegistry()
     handles = []
     try:
         engine = sa.create_engine(
@@ -41,16 +42,10 @@ def start(
         )
         print("Engine created.")
 
-        # log_actor = sa_logger.SALogger.start(engine=engine)
-        message_queue = mp.Queue(-1)  # -1 = infinite size
-        sa_logger.MPLogger(
-            message_queue=message_queue,
-            engine=engine,
-            # actor=log_actor,
-        )
-        logger = sa_logger.NamedLogger(
+        log_message_queue = mp.Queue(-1)  # -1 = infinite size
+        logger = NamedLogger(
             name="root",
-            message_queue=message_queue,
+            message_queue=log_message_queue,
             log_to_console=log_to_console,
             min_log_level=min_log_level,
         )
@@ -64,15 +59,14 @@ def start(
             logger=logger,
         )
 
-        job_queue = sa_job_queue.SAJobQueue.start(
-            engine=engine,
+        job_queue = JobQueue(
             jobs=jobs,
             logger=logger.new(name="JobQueue"),
-        ).proxy()
+        )
 
         scheduler_handle = domain.repeat(
             seconds=10,
-            fn=sa_scheduler.update_queue,
+            fn=update_queue,
             engine=engine,
             jobs=jobs,
             job_queue=job_queue,
@@ -84,7 +78,7 @@ def start(
         for i in range(max_job_runners):
             job_handle = domain.repeat(
                 seconds=10,
-                fn=sa_job_runner.run_job,
+                fn=run_job,
                 engine=engine,
                 job_queue=job_queue,
                 logger=logger.new(name=f"JobRunner{i}"),
@@ -94,23 +88,11 @@ def start(
         logger.info("JobRunners started.")
 
         while True:
-            actors = reg.get_all()
-            status = {
-                ("Alive" if is_alive else "Dead"): sorted(
-                    a.actor_class.__name__ for a in actors_by_status
-                )
-                for is_alive, actors_by_status in itertools.groupby(
-                    actors, key=lambda a: a.is_alive()
-                )
-            }
-            if dead_actors := status.get("Dead"):
-                logger.debug(f"Dead Actors: {', '.join(dead_actors)}.")
             time.sleep(10)
     finally:
         # stop all repeating function
         for handle in handles:
             handle()
-        reg.stop_all(block=True, timeout=10)
 
 
 def check_job_names_are_unique(*, jobs: typing.List[domain.Job]) -> None:

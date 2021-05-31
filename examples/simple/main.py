@@ -13,13 +13,11 @@ import letl
 def job1(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
     logger.info("Job1 is a happy, simple job...")
     time.sleep(12)
-    logger.info("Job1 finished.")
 
 
 def job2(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
     logger.info("Job2 running (and is going to timeout)...")
     time.sleep(19)
-    logger.info("Job2 finished.")
 
 
 def job3(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
@@ -31,7 +29,6 @@ def job3(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
 def job4(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
     logger.info("Job4 depends on Job1, so it should always run after it.")
     time.sleep(2)
-    raise Exception("I'm a bad job.")
 
 
 def main() -> None:
@@ -93,6 +90,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     logging.basicConfig()
-    logging.getLogger("letl").setLevel(logging.INFO)
+    logging.getLogger("letl").setLevel(logging.DEBUG)
 
     main()

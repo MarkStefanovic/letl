@@ -20,7 +20,9 @@ class Interval(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def next(self, last: datetime.datetime, now: datetime.datetime) -> bool:
+    def next(
+        self, last: datetime.datetime, now: datetime.datetime
+    ) -> datetime.datetime:
         raise NotImplementedError
 
 
@@ -28,11 +30,16 @@ class Daily(Interval):
     def description(self) -> str:
         return "daily"
 
-    def next(self, last: datetime.datetime, now: datetime.datetime) -> bool:
+    def next(
+        self, last: datetime.datetime, now: datetime.datetime
+    ) -> datetime.datetime:
         if last.date() == now.date():
-            return False
+            return now + datetime.timedelta(days=1)
         else:
-            return True
+            return now
+
+    def __repr__(self) -> str:
+        return "Daily()"
 
 
 class EveryXSeconds(Interval):
@@ -42,17 +49,17 @@ class EveryXSeconds(Interval):
     def description(self) -> str:
         return f"every_x_seconds: {self._seconds}"
 
-    def next(self, last: datetime.datetime, now: datetime.datetime) -> bool:
+    def next(
+        self, last: datetime.datetime, now: datetime.datetime
+    ) -> datetime.datetime:
         seconds_since_last_run = (now - last).total_seconds()
         if seconds_since_last_run > self._seconds:
-            next_due = now
+            return now
         else:
-            next_due = last + datetime.timedelta(seconds=self._seconds)
+            return last + datetime.timedelta(seconds=self._seconds)
 
-        if datetime.datetime.now() >= next_due:
-            return True
-        else:
-            return False
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(seconds={self._seconds})"
 
 
 if __name__ == "__main__":

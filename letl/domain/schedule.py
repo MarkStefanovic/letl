@@ -103,7 +103,11 @@ class Schedule:
                 else:
                     return True
             else:
-                return self.interval.next(last=last_completed, now=ts)
+                next_due = self.interval.next(last=last_completed, now=ts)
+                if ts >= next_due:
+                    return True
+                else:
+                    return False
 
 
 if __name__ == "__main__":

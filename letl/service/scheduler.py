@@ -1,7 +1,6 @@
 import datetime
 import typing
 
-import pykka
 import sqlalchemy as sa
 
 from letl import adapter, domain
@@ -12,7 +11,7 @@ __all__ = ("update_queue",)
 def update_queue(
     *,
     engine: sa.engine.Engine,
-    job_queue: pykka.ActorProxy,
+    job_queue: domain.JobQueue,
     jobs: typing.List[domain.Job],
     logger: domain.Logger,
 ) -> None:
@@ -42,7 +41,7 @@ def job_is_ready_to_run(
 
     if last_started and status and status.is_running:
         seconds_since_started = (datetime.datetime.now() - last_started).total_seconds()
-        if seconds_since_started < job.timeout_seconds:
+        if seconds_since_started < (job.timeout_seconds + 10):
             return False
 
     if job.dependencies:

@@ -3,7 +3,6 @@ import sqlalchemy as sa
 __all__ = (
     "create_tables",
     "log",
-    "job_queue",
     "status",
 )
 
@@ -25,13 +24,6 @@ log = sa.Table(
     sa.Column("level", sa.String, nullable=False),
     sa.Column("ts", sa.DateTime, nullable=False),
     sa.Column("message", sa.String, nullable=False),
-)
-
-job_queue = sa.Table(
-    "job_queue",
-    metadata,
-    sa.Column("job_name", sa.String, primary_key=True),
-    sa.Column("added", sa.DateTime, nullable=False),
 )
 
 # schedule = sa.Table(

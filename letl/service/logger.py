@@ -136,7 +136,7 @@ class NamedLogger(domain.Logger):
         )
 
 
-class MPLogger:
+class LoggerThread:
     def __init__(
         self,
         *,

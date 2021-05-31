@@ -1,25 +1,21 @@
 import multiprocessing as mp
 from queue import Empty
 
-import pykka
 import sqlalchemy as sa
 
 from letl import adapter, domain
 
 __all__ = ("run_job",)
 
-SENTINEL = "DONE"
-
 
 def run_job(
     *,
     engine: sa.engine.Engine,
-    job_queue: pykka.ActorProxy,
+    job_queue: domain.JobQueue,
     logger: domain.Logger,
 ) -> None:
     status_repo = adapter.SAStatusRepo(engine=engine)
-    job = job_queue.pop().get()
-    if job:
+    if job := job_queue.pop():
         logger.info(f"Starting [{job.job_name}]...")
         status_repo.start(job_name=job.job_name)
         result = run_job_in_process(
