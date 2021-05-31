@@ -19,7 +19,7 @@ class NamedLogger(domain.Logger):
         self,
         *,
         name: str,
-        message_queue: mp.Queue[domain.LogMessage],
+        message_queue: "mp.Queue[domain.LogMessage]",
         log_to_console: bool = False,
         min_log_level: domain.LogLevel = domain.LogLevel.Info,
     ):
@@ -140,7 +140,7 @@ class LoggerThread:
     def __init__(
         self,
         *,
-        message_queue: mp.Queue[domain.LogMessage],
+        message_queue: "mp.Queue[domain.LogMessage]",
         engine: sa.engine.Engine,
     ):
         self._message_queue = message_queue

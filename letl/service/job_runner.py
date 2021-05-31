@@ -36,7 +36,7 @@ def run_job_in_process(
     logger: domain.Logger,
     job: domain.Job,
 ) -> domain.JobResult:
-    result_queue: mp.Queue[domain.JobResult] = mp.Queue()
+    result_queue: "mp.Queue[domain.JobResult]" = mp.Queue()
     p = mp.Process(
         target=run_job_with_retry,
         args=(result_queue, job, logger, 0),
@@ -60,7 +60,7 @@ def run_job_in_process(
 
 # noinspection PyBroadException
 def run_job_with_retry(
-    result_queue: mp.Queue[domain.JobResult],
+    result_queue: "mp.Queue[domain.JobResult]",
     job: domain.Job,
     logger: domain.Logger,
     retries_so_far: int = 0,

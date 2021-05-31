@@ -42,7 +42,7 @@ def start(
         )
         print("Engine created.")
 
-        log_message_queue: mp.Queue[domain.LogMessage] = mp.Queue(
+        log_message_queue: "mp.Queue[domain.LogMessage]" = mp.Queue(
             -1
         )  # -1 = infinite size
         logger = NamedLogger(
