@@ -7,9 +7,9 @@ import sqlalchemy as sa
 
 from letl import adapter, domain
 from letl.service import admin
-from letl.service.job_runner import run_job
+from letl.service.job_runner import JobRunner
 from letl.service.logger import NamedLogger
-from letl.service.scheduler import update_queue
+from letl.service.scheduler import Scheduler
 
 __all__ = ("start",)
 
@@ -32,70 +32,58 @@ def start(
     all_jobs = jobs + admin_jobs
     check_job_names_are_unique(jobs=all_jobs)
 
-    handles = []
-    try:
-        engine = sa.create_engine(
-            etl_db_uri,
-            echo=log_sql_to_console,
-            echo_pool=log_sql_to_console,
-            future=True,
-        )
-        print("Engine created.")
+    engine = sa.create_engine(
+        etl_db_uri,
+        echo=log_sql_to_console,
+        echo_pool=log_sql_to_console,
+        future=True,
+    )
+    print("Engine created.")
 
-        log_message_queue: "mp.Queue[domain.LogMessage]" = mp.Queue(
-            -1
-        )  # -1 = infinite size
-        logger = NamedLogger(
-            name="root",
-            message_queue=log_message_queue,
-            log_to_console=log_to_console,
-            min_log_level=min_log_level,
-        )
-        logger.info("Logger started.")
+    log_message_queue: "mp.Queue[domain.LogMessage]" = mp.Queue(
+        -1
+    )  # -1 = infinite size
+    logger = NamedLogger(
+        name="root",
+        message_queue=log_message_queue,
+        log_to_console=log_to_console,
+        min_log_level=min_log_level,
+    )
+    logger.info("Logger started.")
 
-        adapter.db.create_tables(engine=engine)
+    adapter.db.create_tables(engine=engine)
 
-        admin.delete_orphan_jobs(
-            admin_engine=engine,
-            current_jobs=jobs,
-            logger=logger,
-        )
+    admin.delete_orphan_jobs(
+        admin_engine=engine,
+        current_jobs=jobs,
+        logger=logger,
+    )
 
-        # job_queue = JobQueue(
-        #     jobs=jobs,
-        #     logger=logger.new(name="JobQueue"),
-        #     max_job_runners=max_job_runners,
-        # )
-        job_queue: "queue.Queue[domain.Job]" = adapter.SetQueue(max_job_runners)
-        scheduler_handle = domain.repeat(
-            seconds=10,
-            fn=update_queue,
+    job_queue: "queue.Queue[domain.Job]" = adapter.SetQueue(max_job_runners)
+
+    scheduler = Scheduler(
+        engine=engine,
+        job_queue=job_queue,
+        jobs=jobs,
+        logger=logger,
+        seconds_between_scans=10,
+    )
+    scheduler.start()
+    logger.info("Scheduler started.")
+
+    for i in range(max_job_runners):
+        job_runner = JobRunner(
             engine=engine,
-            jobs=jobs,
             job_queue=job_queue,
-            logger=logger.new(name="Scheduler"),
+            logger=logger.new(name=f"JobRunner{i}"),
+            seconds_between_jobs=10,
         )
-        handles.append(scheduler_handle)
-        logger.info("Scheduler started.")
+        job_runner.start()
 
-        for i in range(max_job_runners):
-            job_handle = domain.repeat(
-                seconds=10,
-                fn=run_job,
-                engine=engine,
-                job_queue=job_queue,
-                logger=logger.new(name=f"JobRunner{i}"),
-            )
-            handles.append(job_handle)
+    logger.info("JobRunners started.")
 
-        logger.info("JobRunners started.")
-
-        while True:
-            time.sleep(10)
-    finally:
-        # stop all repeating function
-        for handle in handles:
-            handle()
+    while True:
+        time.sleep(10)
 
 
 def check_job_names_are_unique(*, jobs: typing.List[domain.Job]) -> None:

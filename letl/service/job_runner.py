@@ -1,11 +1,43 @@
 import multiprocessing as mp
 import queue
+import threading
+import time
 
 import sqlalchemy as sa
 
 from letl import adapter, domain
 
-__all__ = ("run_job",)
+__all__ = ("JobRunner",)
+
+
+class JobRunner(threading.Thread):
+    def __init__(
+        self,
+        *,
+        engine: sa.engine.Engine,
+        job_queue: "mp.Queue[domain.Job]",
+        logger: domain.Logger,
+        seconds_between_jobs: int,
+    ):
+        super().__init__()
+
+        self._engine = engine
+        self._job_queue = job_queue
+        self._logger = logger
+        self._seconds_between_jobs = seconds_between_jobs
+
+    def run(self) -> None:
+        while True:
+            try:
+                run_job(
+                    engine=self._engine,
+                    job_queue=self._job_queue,
+                    logger=self._logger,
+                )
+            except Exception as e:
+                self._logger.exception(e)
+
+            time.sleep(10)
 
 
 def run_job(

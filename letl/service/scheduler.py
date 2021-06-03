@@ -1,12 +1,47 @@
 import datetime
 import queue
+import threading
+import time
 import typing
 
 import sqlalchemy as sa
 
 from letl import adapter, domain
 
-__all__ = ("update_queue",)
+__all__ = ("Scheduler",)
+
+
+class Scheduler(threading.Thread):
+    def __init__(
+        self,
+        *,
+        engine: sa.engine.Engine,
+        job_queue: "queue.Queue[domain.Job]",
+        jobs: typing.List[domain.Job],
+        logger: domain.Logger,
+        seconds_between_scans: int,
+    ):
+        super().__init__()
+
+        self._engine = engine
+        self._job_queue = job_queue
+        self._jobs = jobs
+        self._logger = logger
+        self._seconds_between_scans = seconds_between_scans
+
+    def run(self) -> None:
+        while True:
+            try:
+                update_queue(
+                    engine=self._engine,
+                    job_queue=self._job_queue,
+                    jobs=self._jobs,
+                    logger=self._logger,
+                )
+            except Exception as e:
+                self._logger.exception(e)
+
+            time.sleep(self._seconds_between_scans)
 
 
 def update_queue(
@@ -16,7 +51,7 @@ def update_queue(
     jobs: typing.List[domain.Job],
     logger: domain.Logger,
 ) -> None:
-    print("running update_queue")
+    print(f"{datetime.datetime.now()}: running update_queue")
     status_repo = adapter.SAStatusRepo(engine=engine)
     job_map = {job.job_name: job for job in jobs}
     for job_name, job in job_map.items():
