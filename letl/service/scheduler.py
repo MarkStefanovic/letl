@@ -58,7 +58,7 @@ def update_queue(
         logger.debug(f"Checking if [{job_name}] is ready...")
         if job_is_ready_to_run(job=job, status_repo=status_repo):
             logger.debug(f"Adding [{job_name}] to queue.")
-            job_queue.put(job_map[job_name])
+            job_queue.put(job)
         else:
             logger.debug(f"[{job_name}] was skipped.")
 
@@ -96,7 +96,7 @@ def dependencies_have_run(
     *,
     status_repo: domain.StatusRepo,
     job_last_run: typing.Optional[datetime.datetime],
-    dependencies: typing.Set[str],
+    dependencies: typing.FrozenSet[str],
 ) -> bool:
     for dep in dependencies:
         dep_status = status_repo.status(job_name=dep)
