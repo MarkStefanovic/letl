@@ -1,4 +1,5 @@
 import datetime
+import queue
 import typing
 
 import sqlalchemy as sa
@@ -11,17 +12,18 @@ __all__ = ("update_queue",)
 def update_queue(
     *,
     engine: sa.engine.Engine,
-    job_queue: domain.JobQueue,
+    job_queue: "queue.Queue[domain.Job]",
     jobs: typing.List[domain.Job],
     logger: domain.Logger,
 ) -> None:
+    print("running update_queue")
     status_repo = adapter.SAStatusRepo(engine=engine)
     job_map = {job.job_name: job for job in jobs}
     for job_name, job in job_map.items():
         logger.debug(f"Checking if [{job_name}] is ready...")
         if job_is_ready_to_run(job=job, status_repo=status_repo):
             logger.debug(f"Adding [{job_name}] to queue.")
-            job_queue.add(job_name=job_name)
+            job_queue.put(job_map[job_name])
         else:
             logger.debug(f"[{job_name}] was skipped.")
 

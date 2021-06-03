@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import dataclasses
 import typing
 
@@ -14,11 +12,11 @@ __all__ = ("Job",)
 class Job:
     job_name: str
     timeout_seconds: int
-    dependencies: typing.Set[str]
+    dependencies: typing.FrozenSet[str]
     retries: int
     run: typing.Callable[
         [typing.Dict[str, typing.Any], log.Logger],
         typing.Optional[JobResult],
     ]
-    config: typing.Dict[str, typing.Any]
-    schedule: typing.Set[Schedule]
+    config: typing.Optional[typing.NamedTuple]
+    schedule: typing.FrozenSet[Schedule]

@@ -1,4 +1,5 @@
 import multiprocessing as mp
+import queue
 import time
 import typing
 
@@ -6,7 +7,6 @@ import sqlalchemy as sa
 
 from letl import adapter, domain
 from letl.service import admin
-from letl.service.job_queue import JobQueue
 from letl.service.job_runner import run_job
 from letl.service.logger import NamedLogger
 from letl.service.scheduler import update_queue
@@ -61,11 +61,12 @@ def start(
             logger=logger,
         )
 
-        job_queue = JobQueue(
-            jobs=jobs,
-            logger=logger.new(name="JobQueue"),
-        )
-
+        # job_queue = JobQueue(
+        #     jobs=jobs,
+        #     logger=logger.new(name="JobQueue"),
+        #     max_job_runners=max_job_runners,
+        # )
+        job_queue: "queue.Queue[domain.Job]" = adapter.SetQueue(max_job_runners)
         scheduler_handle = domain.repeat(
             seconds=10,
             fn=update_queue,
