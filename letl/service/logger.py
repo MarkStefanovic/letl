@@ -136,22 +136,20 @@ class NamedLogger(domain.Logger):
         )
 
 
-class LoggerThread:
+class LoggerThread(threading.Thread):
     def __init__(
         self,
         *,
         message_queue: "mp.Queue[domain.LogMessage]",
         engine: sa.engine.Engine,
     ):
+        super().__init__()
+
         self._message_queue = message_queue
 
         self._repo = adapter.SALogRepo(engine=engine)
 
-        t = threading.Thread(target=self.start)
-        t.daemon = True
-        t.start()
-
-    def start(self) -> None:
+    def run(self) -> None:
         while True:
             # noinspection PyBroadException
             try:

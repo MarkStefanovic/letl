@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from letl import adapter, domain
 from letl.service import admin
 from letl.service.job_runner import *
-from letl.service.logger import NamedLogger
+from letl.service.logger import LoggerThread, NamedLogger
 from letl.service.scheduler import Scheduler
 
 __all__ = ("start",)
@@ -25,6 +25,8 @@ def start(
     log_to_console: bool = False,
     days_logs_to_keep: int = 3,
 ) -> None:
+    threads: typing.List[threading.Thread] = []
+
     admin_jobs = [
         admin.delete_old_log_entries(
             etl_db_uri=etl_db_uri, days_to_keep=days_logs_to_keep
@@ -44,6 +46,13 @@ def start(
     log_message_queue: "mp.Queue[domain.LogMessage]" = mp.Queue(
         -1
     )  # -1 = infinite size
+    logger_thread = LoggerThread(
+        message_queue=log_message_queue,
+        engine=engine,
+    )
+    threads.append(logger_thread)
+    logger_thread.start()
+
     logger = NamedLogger(
         name="root",
         message_queue=log_message_queue,
@@ -60,9 +69,9 @@ def start(
         logger=logger,
     )
 
-    job_queue: "queue.Queue[domain.Job]" = adapter.SetQueue(max_job_runners)
+    job_queue: "mp.Queue[domain.Job]" = mp.Queue(max_job_runners)
+    # job_queue: "queue.Queue[domain.Job]" = adapter.SetQueue(max_job_runners)
 
-    threads: typing.List[threading.Thread] = []
     scheduler = Scheduler(
         engine=engine,
         job_queue=job_queue,
