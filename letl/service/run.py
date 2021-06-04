@@ -1,7 +1,6 @@
 import multiprocessing as mp
 import queue
 import threading
-import time
 import typing
 
 import sqlalchemy as sa
@@ -42,10 +41,9 @@ def start(
         future=True,
     )
     print("Engine created.")
-
-    log_message_queue: "mp.Queue[domain.LogMessage]" = mp.Queue(
-        -1
-    )  # -1 = infinite size
+    # fmt: off
+    log_message_queue: "mp.Queue[domain.LogMessage]" = mp.Queue(-1)  # -1 = infinite size
+    # fmt: on
     logger_thread = LoggerThread(
         message_queue=log_message_queue,
         engine=engine,
@@ -69,8 +67,7 @@ def start(
         logger=logger,
     )
 
-    job_queue: "mp.Queue[domain.Job]" = mp.Queue(max_job_runners)
-    # job_queue: "queue.Queue[domain.Job]" = adapter.SetQueue(max_job_runners)
+    job_queue: "queue.Queue[domain.Job]" = adapter.SetQueue(max_job_runners)
 
     scheduler = Scheduler(
         engine=engine,
@@ -88,7 +85,7 @@ def start(
             engine=engine,
             job_queue=job_queue,
             logger=logger.new(name=f"JobRunner{i}"),
-            seconds_between_jobs=10,
+            seconds_between_jobs=1,
         )
         threads.append(job_runner)
         job_runner.start()
