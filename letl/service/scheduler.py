@@ -51,7 +51,7 @@ def update_queue(
     jobs: typing.List[domain.Job],
     logger: domain.Logger,
 ) -> None:
-    print(f"{datetime.datetime.now()}: running update_queue")
+    logger.debug(f"{datetime.datetime.now()}: running update_queue")
     status_repo = adapter.SAStatusRepo(engine=engine)
     job_map = {job.job_name: job for job in jobs}
     for job_name, job in job_map.items():
@@ -59,6 +59,7 @@ def update_queue(
         if job_is_ready_to_run(job=job, status_repo=status_repo):
             logger.debug(f"Adding [{job_name}] to queue.")
             job_queue.put(job)
+            logger.debug(f"[{job_name}] added to queue...")
         else:
             logger.debug(f"[{job_name}] was skipped.")
 

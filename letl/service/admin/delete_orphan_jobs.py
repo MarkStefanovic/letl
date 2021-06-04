@@ -46,7 +46,7 @@ def delete_orphan_jobs(
         status_repo.delete(job_name=job_name)
 
     logger.debug("Deleting jobs that are past their expiration date.")
-    schedules: typing.Dict[str, typing.Set[domain.Schedule]] = {
+    schedules: typing.Dict[str, typing.FrozenSet[domain.Schedule]] = {
         job.job_name: job.schedule for job in current_jobs
     }
     for status in statuses:

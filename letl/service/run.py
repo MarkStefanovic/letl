@@ -1,5 +1,6 @@
 import multiprocessing as mp
 import queue
+import threading
 import time
 import typing
 
@@ -7,7 +8,7 @@ import sqlalchemy as sa
 
 from letl import adapter, domain
 from letl.service import admin
-from letl.service.job_runner import JobRunner
+from letl.service.job_runner import *
 from letl.service.logger import NamedLogger
 from letl.service.scheduler import Scheduler
 
@@ -61,6 +62,7 @@ def start(
 
     job_queue: "queue.Queue[domain.Job]" = adapter.SetQueue(max_job_runners)
 
+    threads: typing.List[threading.Thread] = []
     scheduler = Scheduler(
         engine=engine,
         job_queue=job_queue,
@@ -68,6 +70,7 @@ def start(
         logger=logger,
         seconds_between_scans=10,
     )
+    threads.append(scheduler)
     scheduler.start()
     logger.info("Scheduler started.")
 
@@ -78,12 +81,13 @@ def start(
             logger=logger.new(name=f"JobRunner{i}"),
             seconds_between_jobs=10,
         )
+        threads.append(job_runner)
         job_runner.start()
 
     logger.info("JobRunners started.")
 
-    while True:
-        time.sleep(10)
+    for thread in threads:
+        thread.join()
 
 
 def check_job_names_are_unique(*, jobs: typing.List[domain.Job]) -> None:

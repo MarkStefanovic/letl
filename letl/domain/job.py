@@ -15,8 +15,8 @@ class Job:
     dependencies: typing.FrozenSet[str]
     retries: int
     run: typing.Callable[
-        [typing.Dict[str, typing.Any], log.Logger],
+        [typing.Hashable, log.Logger],
         typing.Optional[JobResult],
     ]
-    config: typing.Optional[typing.NamedTuple]
+    config: typing.Optional[typing.Hashable]
     schedule: typing.FrozenSet[Schedule]

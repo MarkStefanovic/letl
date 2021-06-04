@@ -15,7 +15,7 @@ class JobRunner(threading.Thread):
         self,
         *,
         engine: sa.engine.Engine,
-        job_queue: "mp.Queue[domain.Job]",
+        job_queue: "queue.Queue[domain.Job]",
         logger: domain.Logger,
         seconds_between_jobs: int,
     ):
@@ -29,25 +29,25 @@ class JobRunner(threading.Thread):
     def run(self) -> None:
         while True:
             try:
+                job = self._job_queue.get()
                 run_job(
+                    job=job,
                     engine=self._engine,
-                    job_queue=self._job_queue,
                     logger=self._logger,
                 )
+                time.sleep(10)
             except Exception as e:
+                print(e)
                 self._logger.exception(e)
-
-            time.sleep(10)
 
 
 def run_job(
     *,
+    job: domain.Job,
     engine: sa.engine.Engine,
-    job_queue: "queue.Queue[domain.Job]",
     logger: domain.Logger,
 ) -> None:
     status_repo = adapter.SAStatusRepo(engine=engine)
-    job = job_queue.get()
     logger.info(f"Starting [{job.job_name}]...")
     status_repo.start(job_name=job.job_name)
     result = run_job_in_process(

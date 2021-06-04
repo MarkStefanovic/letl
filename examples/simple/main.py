@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import logging
 import pathlib
@@ -10,25 +11,34 @@ import sqlalchemy as sa
 import letl
 
 
-def job1(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
-    logger.info("Job1 is a happy, simple job...")
+@dataclasses.dataclass(frozen=True, eq=True)
+class Config:
+    payload: str
+
+
+def job1(config: typing.Hashable, logger: letl.Logger) -> None:
+    logger.info("Job1 will always succeed.")
+    assert isinstance(config, Config)
     time.sleep(12)
+    logger.info(config.payload)
 
 
-def job2(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
+def job2(_: typing.Hashable, logger: letl.Logger) -> None:
     logger.info("Job2 running (and is going to timeout)...")
     time.sleep(19)
 
 
-def job3(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
+def job3(config: typing.Hashable, logger: letl.Logger) -> None:
     logger.info("Job3 will always fail...")
     time.sleep(2)
     raise Exception("I'm a bad job.")
 
 
-def job4(config: typing.Dict[str, typing.Any], logger: letl.Logger) -> None:
+def job4(config: typing.Hashable, logger: letl.Logger) -> None:
     logger.info("Job4 depends on Job1, so it should always run after it.")
+    assert isinstance(config, Config)
     time.sleep(2)
+    logger.info(config.payload)
 
 
 def main() -> None:
@@ -47,7 +57,7 @@ def main() -> None:
             dependencies=frozenset({"Job1"}),
             retries=1,
             run=job4,
-            config=None,
+            config=Config("job4_payload"),
             schedule=frozenset({letl.Schedule.every_x_seconds(seconds=30)}),
         ),
         letl.Job(
@@ -56,7 +66,7 @@ def main() -> None:
             dependencies=frozenset(),
             retries=1,
             run=job1,
-            config=None,
+            config=Config("job1_payload"),
             schedule=frozenset({letl.Schedule.every_x_seconds(seconds=30)}),
         ),
         letl.Job(
@@ -65,7 +75,7 @@ def main() -> None:
             dependencies=frozenset(),
             retries=1,
             run=job2,
-            config=None,
+            config=Config("job2_payload"),
             schedule=frozenset({letl.Schedule.every_x_seconds(seconds=30)}),
         ),
         letl.Job(
@@ -74,7 +84,7 @@ def main() -> None:
             dependencies=frozenset(),
             retries=1,
             run=job3,
-            config=None,
+            config=Config("job3_payload"),
             schedule=frozenset({letl.Schedule.every_x_seconds(seconds=30)}),
         ),
     ]
@@ -84,7 +94,7 @@ def main() -> None:
         max_job_runners=3,
         log_to_console=True,
         log_sql_to_console=False,
-        min_log_level=letl.LogLevel.Info,
+        min_log_level=letl.LogLevel.Debug,
     )
 
 
