@@ -9,6 +9,8 @@ from letl import adapter, domain
 
 __all__ = ("JobRunner",)
 
+logger = domain.root_logger.getChild("job_runner")
+
 
 class JobRunner(threading.Thread):
     def __init__(
@@ -37,8 +39,11 @@ class JobRunner(threading.Thread):
                 )
                 time.sleep(10)
             except Exception as e:
-                print(e)
-                self._logger.exception(e)
+                try:
+                    self._logger.exception(e)
+                except Exception as e2:
+                    print(e2)
+                    logger.exception(e2)
 
 
 def run_job(
