@@ -9,9 +9,9 @@ import sqlalchemy as sa
 
 from letl import adapter, domain, Logger
 
-__all__ = ("NamedLogger",)
+__all__ = ("LoggerThread", "NamedLogger")
 
-mod_logger = domain.root_logger.getChild("sa_logger")
+std_logger = domain.root_logger.getChild("sa_logger")
 
 
 class NamedLogger(domain.Logger):
@@ -80,7 +80,7 @@ class NamedLogger(domain.Logger):
                     self._message_queue.put_nowait(msg)
                 except Exception as e:
                     traceback.print_exc(file=sys.stderr)
-                    mod_logger.exception(e)
+                    std_logger.exception(e)
                 if self._log_to_console:
                     print(
                         f"{datetime.datetime.now().strftime('%H:%M:%S')} ({level.value!s}) "
