@@ -104,7 +104,7 @@ class NamedLogger(domain.Logger):
         )
 
     def exception(
-        self, /, e: BaseException, *, ts: typing.Optional[datetime.datetime] = None
+        self, /, e: Exception, *, ts: typing.Optional[datetime.datetime] = None
     ) -> None:
         msg = domain.error.parse_exception(e).text()
         self._log(level=domain.LogLevel.Error, message=msg)

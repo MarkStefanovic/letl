@@ -24,7 +24,7 @@ class Logger(abc.ABC):
 
     @abc.abstractmethod
     def exception(
-        self, /, e: BaseException, *, ts: typing.Optional[datetime.datetime] = None
+        self, /, e: Exception, *, ts: typing.Optional[datetime.datetime] = None
     ) -> None:
         raise NotImplementedError
 

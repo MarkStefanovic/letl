@@ -1,7 +1,7 @@
 import dataclasses
 import pathlib
-import typing
 import traceback
+import typing
 
 __all__ = (
     "DuplicateJobNames",
@@ -35,7 +35,7 @@ class ExceptionInfo:
         return f"{self.error_type!s}: {self.error_msg!s}" + frames
 
 
-def parse_exception(e: BaseException) -> ExceptionInfo:
+def parse_exception(e: Exception) -> ExceptionInfo:
     frames = [
         Frame(
             file=pathlib.Path(f.filename).name,
