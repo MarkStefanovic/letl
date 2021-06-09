@@ -78,6 +78,7 @@ def run_job_in_process(
     try:
         p.start()
         result = result_queue.get(block=True, timeout=job.timeout_seconds)
+        p.join()
         return result
     except queue.Empty:
         return domain.JobResult.error(
@@ -88,7 +89,6 @@ def run_job_in_process(
     except Exception as e:
         return domain.JobResult.error(e)
     finally:
-        p.join()
         result_queue.close()
 
 
