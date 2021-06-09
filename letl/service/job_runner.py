@@ -1,7 +1,6 @@
 import multiprocessing as mp
 import queue
 import threading
-import time
 
 import sqlalchemy as sa
 
@@ -9,7 +8,7 @@ from letl import adapter, domain
 
 __all__ = ("JobRunner",)
 
-logger = domain.root_logger.getChild("job_runner")
+std_logger = domain.root_logger.getChild("job_runner")
 
 
 class JobRunner(threading.Thread):
@@ -37,13 +36,11 @@ class JobRunner(threading.Thread):
                     engine=self._engine,
                     logger=self._logger,
                 )
-                time.sleep(10)
             except Exception as e:
                 try:
                     self._logger.exception(e)
                 except Exception as e2:
-                    print(e2)
-                    logger.exception(e2)
+                    std_logger.exception(e2)
 
 
 def run_job(
