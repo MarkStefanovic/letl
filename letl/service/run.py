@@ -1,9 +1,7 @@
-import logging
 import multiprocessing as mp
 import queue
 import threading
 import typing
-from logging.handlers import QueueHandler, QueueListener
 
 import sqlalchemy as sa
 
@@ -26,25 +24,8 @@ def start(
     days_logs_to_keep: int = 3,
     log_level: domain.LogLevel = domain.LogLevel.Info,
     log_sql_to_console: bool = False,
-    std_logging_handlers: typing.Optional[
-        typing.List[typing.Union[logging.StreamHandler, logging.FileHandler]]
-    ] = None,
 ) -> None:
-    log_queue = mp.Queue(-1)  # infinite size
-    queue_handler = QueueHandler(log_queue)
-    domain.root_logger.addHandler(queue_handler)
-
-    if std_logging_handlers:
-        std_log_listener: typing.Optional[QueueListener] = QueueListener(
-            log_queue, *std_logging_handlers
-        )
-    else:
-        std_log_listener = None
-
     try:
-        if std_log_listener:
-            std_log_listener.start()
-
         std_logger.info("Started.")
         threads: typing.List[threading.Thread] = []
 
@@ -120,9 +101,6 @@ def start(
     except Exception as e:
         std_logger.exception(e)
         raise
-    finally:
-        if std_log_listener:
-            std_log_listener.stop()
 
 
 def check_job_names_are_unique(*, jobs: typing.List[domain.Job]) -> None:
