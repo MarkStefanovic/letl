@@ -1,8 +1,6 @@
 import datetime
 import multiprocessing as mp
-import sys
 import threading
-import traceback
 import typing
 
 import sqlalchemy as sa
@@ -20,12 +18,10 @@ class NamedLogger(domain.Logger):
         *,
         name: str,
         message_queue: "mp.Queue[domain.LogMessage]",
-        log_to_console: bool = False,
         min_log_level: domain.LogLevel = domain.LogLevel.Info,
     ):
         self._name = name
         self._message_queue = message_queue
-        self._log_to_console = log_to_console
         self._min_log_level = min_log_level
 
         self._recent_messages: typing.Dict[str, datetime.datetime] = {}
@@ -37,55 +33,58 @@ class NamedLogger(domain.Logger):
         message: str,
         ts: typing.Optional[datetime.datetime] = None,
     ) -> None:
-        if level == domain.LogLevel.Error:
-            over_threshold = True
-        elif level == domain.LogLevel.Info and self._min_log_level in (
-            domain.LogLevel.Info,
-            domain.LogLevel.Error,
-        ):
-            over_threshold = True
-        elif self._min_log_level == domain.LogLevel.Debug:
-            over_threshold = True
-        else:
-            over_threshold = False
-        if over_threshold:
-            self._recent_messages = {
-                msg: last_sent
-                for msg, last_sent in sorted(
-                    self._recent_messages.items(),
-                    key=lambda tup: tup[1],
-                    reverse=True,
-                )[:30]
-            }
-            if message in self._recent_messages:
-                last_sent = self._recent_messages[message]
-                if last_sent:
-                    seconds_since_last_sent: typing.Optional[float] = (
-                        datetime.datetime.now() - last_sent
-                    ).total_seconds()
+        try:
+            if level == domain.LogLevel.Error:
+                over_threshold = True
+            elif level == domain.LogLevel.Info and self._min_log_level in (
+                domain.LogLevel.Info,
+                domain.LogLevel.Error,
+            ):
+                over_threshold = True
+            elif self._min_log_level == domain.LogLevel.Debug:
+                over_threshold = True
+            else:
+                over_threshold = False
+            if over_threshold:
+                self._recent_messages = {
+                    msg: last_sent
+                    for msg, last_sent in sorted(
+                        self._recent_messages.items(),
+                        key=lambda tup: tup[1],
+                        reverse=True,
+                    )[:30]
+                }
+                if message in self._recent_messages:
+                    last_sent = self._recent_messages[message]
+                    if last_sent:
+                        seconds_since_last_sent: typing.Optional[float] = (
+                            datetime.datetime.now() - last_sent
+                        ).total_seconds()
+                    else:
+                        seconds_since_last_sent = None
                 else:
                     seconds_since_last_sent = None
-            else:
-                seconds_since_last_sent = None
 
-            if not seconds_since_last_sent or seconds_since_last_sent > 10:
-                self._recent_messages[message] = datetime.datetime.now()
-                if ts is None:
-                    ts = datetime.datetime.now()
-                msg = domain.LogMessage(
-                    logger_name=self._name, level=level, message=message, ts=ts
-                )
-                # noinspection PyBroadException
-                try:
-                    self._message_queue.put_nowait(msg)
-                except Exception as e:
-                    traceback.print_exc(file=sys.stderr)
-                    std_logger.exception(e)
-                if self._log_to_console:
-                    print(
-                        f"{datetime.datetime.now().strftime('%H:%M:%S')} ({level.value!s}) "
-                        f"[{self._name}]: {message}"
+                if not seconds_since_last_sent or seconds_since_last_sent > 10:
+                    self._recent_messages[message] = datetime.datetime.now()
+                    if ts is None:
+                        ts = datetime.datetime.now()
+                    msg = domain.LogMessage(
+                        logger_name=self._name, level=level, message=message, ts=ts
                     )
+                    self._message_queue.put_nowait(msg)
+                    self._std_log(level=level, message=message)
+        except Exception as e:
+            std_logger.exception(e)
+
+    def _std_log(self, *, level: domain.LogLevel, message: str) -> None:
+        msg = f"[{self._name}]: {message}"
+        if level == domain.LogLevel.Debug:
+            std_logger.debug(msg)
+        elif level == domain.LogLevel.Info:
+            std_logger.info(msg)
+        elif level == domain.LogLevel.Error:
+            std_logger.error(msg)
 
     def debug(
         self, /, message: str, *, ts: typing.Optional[datetime.datetime] = None
@@ -131,7 +130,6 @@ class NamedLogger(domain.Logger):
         return NamedLogger(
             name=name,
             message_queue=self._message_queue,
-            log_to_console=log_to_console or self._log_to_console,
             min_log_level=min_log_level or self._min_log_level,
         )
 
@@ -164,5 +162,5 @@ class LoggerThread(threading.Thread):
                 raise
             except EOFError:
                 break
-            except:
-                traceback.print_exc(file=sys.stderr)
+            except Exception as e:
+                std_logger.exception(e)

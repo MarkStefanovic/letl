@@ -5,6 +5,7 @@ import pathlib
 import sys
 import time
 import typing
+from logging.handlers import RotatingFileHandler
 
 import sqlalchemy as sa
 
@@ -88,18 +89,26 @@ def main() -> None:
             schedule=frozenset({letl.Schedule.every_x_seconds(seconds=30)}),
         ),
     ]
+
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    file_handler = RotatingFileHandler("test.log", maxBytes=2000, backupCount=1)
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.ERROR)
+
     letl.start(
         jobs=jobs,
         etl_db_uri=config["db_uri"],
         max_job_runners=3,
-        log_to_console=True,
         log_sql_to_console=False,
-        min_log_level=letl.LogLevel.Debug,
+        log_level=letl.LogLevel.Debug,
+        std_logging_handlers=[console_handler, file_handler],
     )
 
 
 if __name__ == "__main__":
-    logging.basicConfig()
-    logging.getLogger("letl").setLevel(logging.DEBUG)
-
+    logging.getLogger("letl").setLevel(logging.INFO)
     main()

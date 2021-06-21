@@ -8,8 +8,6 @@ from letl import adapter, domain
 
 __all__ = ("JobRunner",)
 
-std_logger = domain.root_logger.getChild("job_runner")
-
 
 class JobRunner(threading.Thread):
     def __init__(
@@ -37,10 +35,7 @@ class JobRunner(threading.Thread):
                     logger=self._logger,
                 )
             except Exception as e:
-                try:
-                    self._logger.exception(e)
-                except Exception as e2:
-                    std_logger.exception(e2)
+                self._logger.exception(e)
 
 
 def run_job(
@@ -87,6 +82,7 @@ def run_job_in_process(
             )
         )
     except Exception as e:
+        logger.exception(e)
         return domain.JobResult.error(e)
     finally:
         result_queue.close()
