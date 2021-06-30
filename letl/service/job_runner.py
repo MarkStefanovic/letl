@@ -8,6 +8,8 @@ from letl import adapter, domain
 
 __all__ = ("JobRunner",)
 
+mod_logger = domain.root_logger.getChild("job_runner")
+
 
 class JobRunner(threading.Thread):
     def __init__(
@@ -35,7 +37,11 @@ class JobRunner(threading.Thread):
                     logger=self._logger,
                 )
             except Exception as e:
-                self._logger.exception(e)
+                # noinspection PyBroadException
+                try:
+                    self._logger.exception(e)
+                except:
+                    mod_logger.exception(e)
 
 
 def run_job(
