@@ -28,6 +28,12 @@ class NamedLogger(domain.Logger):
         self._log_to_console = log_to_console
         self._min_log_level = min_log_level
 
+        self._log_level_numeric_value = {
+            domain.LogLevel.Debug: 0,
+            domain.LogLevel.Info: 1,
+            domain.LogLevel.Error: 2,
+        }
+
         self._recent_messages: typing.Dict[str, datetime.datetime] = {}
 
     def _log(
@@ -37,18 +43,7 @@ class NamedLogger(domain.Logger):
         message: str,
         ts: typing.Optional[datetime.datetime] = None,
     ) -> None:
-        if level == domain.LogLevel.Error:
-            over_threshold = True
-        elif level == domain.LogLevel.Info and self._min_log_level in (
-            domain.LogLevel.Info,
-            domain.LogLevel.Error,
-        ):
-            over_threshold = True
-        elif self._min_log_level == domain.LogLevel.Debug:
-            over_threshold = True
-        else:
-            over_threshold = False
-        if over_threshold:
+        if self._log_level_numeric_value[level] >= self._log_level_numeric_value[self._min_log_level]:
             self._recent_messages = {
                 msg: last_sent
                 for msg, last_sent in sorted(
