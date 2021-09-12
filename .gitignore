@@ -14,3 +14,4 @@ NOTES.md
 poetry.toml
 poetry.lock
 config.json
+*.log

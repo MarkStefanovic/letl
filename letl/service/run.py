@@ -21,10 +21,9 @@ def start(
     jobs: typing.List[domain.Job],
     etl_db_uri: str,
     max_job_runners: int = 5,
-    min_log_level: domain.LogLevel = domain.LogLevel.Info,
-    log_sql_to_console: bool = False,
-    log_to_console: bool = False,
     days_logs_to_keep: int = 3,
+    log_level: domain.LogLevel = domain.LogLevel.Info,
+    log_sql_to_console: bool = False,
 ) -> None:
     try:
         std_logger.info("Started.")
@@ -60,8 +59,7 @@ def start(
         logger = NamedLogger(
             name="root",
             message_queue=log_message_queue,
-            log_to_console=log_to_console,
-            min_log_level=min_log_level,
+            min_log_level=log_level,
         )
         logger.info("Logger started.")
 
