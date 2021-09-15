@@ -35,19 +35,17 @@ class ResourceManager:
                     )
 
     def key_exists(self, /, key: str) -> bool:
-        return key in (res.key for res in self._resources)
+        return key in self.keys
 
-    def get(self, /, key: str, resource_type: typing.Type[Handle]) -> Handle:
+    def get(self, /, key: str, _type: typing.Type[Handle]) -> Handle:
         try:
             res = next(res for res in self._resources if res.key == key)
             handle = res.open()
-            assert isinstance(handle, resource_type)
+            assert isinstance(handle, _type)
             self._handles[res] = handle
             return handle
         except StopIteration:
-            raise error.ResourceKeyNotFound(
-                key=key, available_keys={res.key for res in self._resources}
-            )
+            raise error.ResourceKeyNotFound(key=key, available_keys=self.keys)
 
     @property
     def keys(self) -> set[str]:

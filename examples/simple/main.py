@@ -1,21 +1,14 @@
-import dataclasses
 import json
 import logging
 import multiprocessing as mp
 import pathlib
 import sys
 import time
-import typing
 from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
 
 import sqlalchemy as sa
 
 import letl
-
-
-@dataclasses.dataclass(frozen=True, eq=True)
-class Config:
-    payload: str
 
 
 class Printer:
@@ -41,48 +34,40 @@ class PrinterResource(letl.Resource[Printer]):
 
 
 def job1(
-    config: typing.Hashable, logger: letl.Logger, resources: letl.ResourceManager
+    config: letl.Config, logger: letl.Logger, resources: letl.ResourceManager
 ) -> None:
     logger.info("Job1 will always succeed.")
     printer = resources.get("printer_1", Printer)
     printer.print("Hello")
-    assert isinstance(config, Config)
     time.sleep(12)
-    logger.info(config.payload)
+    logger.info(config.get("payload", str))
 
 
-def job2(
-    _: typing.Hashable, logger: letl.Logger, resources: letl.ResourceManager
-) -> None:
+def job2(_: letl.Config, logger: letl.Logger, resources: letl.ResourceManager) -> None:
     printer = resources.get("printer_2", Printer)
     printer.print("Hello")
     logger.info("Job2 running (and is going to timeout)...")
     time.sleep(19)
 
 
-def job3(
-    _: typing.Hashable, logger: letl.Logger, resources: letl.ResourceManager
-) -> None:
+def job3(_: letl.Config, logger: letl.Logger, __: letl.ResourceManager) -> None:
     logger.info("Job3 will always fail...")
     time.sleep(2)
     raise Exception("I'm a bad job.")
 
 
-def job4(
-    config: typing.Hashable, logger: letl.Logger, resources: letl.ResourceManager
-) -> None:
+def job4(config: letl.Config, logger: letl.Logger, _: letl.ResourceManager) -> None:
     logger.info("Job4 depends on Job1, so it should always run after it.")
-    assert isinstance(config, Config)
     time.sleep(2)
-    logger.info(config.payload)
+    logger.info(config.get("payload", str))
 
 
 def main() -> None:
     config_fp = pathlib.Path(sys.argv[0]).parent / "config.json"
     with config_fp.open("r") as fh:
-        config = json.load(fh)
+        json_config = json.load(fh)
 
-    engine = sa.create_engine(config["db_uri"])
+    engine = sa.create_engine(json_config["db_uri"])
     letl.db.create_tables(engine=engine, recreate=True)
 
     jobs = [
@@ -92,7 +77,7 @@ def main() -> None:
             dependencies=frozenset({"Job1"}),
             retries=1,
             run=job4,
-            config=Config("job4_payload"),
+            config=letl.config(payload="job4_payload"),
             schedule=frozenset({letl.Schedule.every_x_seconds(seconds=30)}),
         ),
         letl.Job(
@@ -101,7 +86,7 @@ def main() -> None:
             dependencies=frozenset(),
             retries=1,
             run=job1,
-            config=Config("job1_payload"),
+            config=letl.config(payload="job1_payload"),
             schedule=frozenset({letl.Schedule.every_x_seconds(seconds=30)}),
         ),
         letl.Job(
@@ -110,7 +95,7 @@ def main() -> None:
             dependencies=frozenset(),
             retries=1,
             run=job2,
-            config=Config("job2_payload"),
+            config=letl.config(payload="job2_payload"),
             schedule=frozenset({letl.Schedule.every_x_seconds(seconds=30)}),
         ),
         letl.Job(
@@ -119,7 +104,7 @@ def main() -> None:
             dependencies=frozenset(),
             retries=1,
             run=job3,
-            config=Config("job3_payload"),
+            config=letl.config(payload="job3_payload"),
             schedule=frozenset({letl.Schedule.every_x_seconds(seconds=30)}),
         ),
     ]
@@ -146,7 +131,7 @@ def main() -> None:
     try:
         letl.start(
             jobs=jobs,
-            etl_db_uri=config["db_uri"],
+            etl_db_uri=json_config["db_uri"],
             max_job_runners=3,
             log_to_console=True,
             log_sql_to_console=False,

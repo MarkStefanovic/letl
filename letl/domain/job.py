@@ -1,10 +1,7 @@
 import dataclasses
 import typing
 
-from letl.domain import logger as log
-from letl.domain.job_result import JobResult
-from letl.domain.resource_manager import ResourceManager
-from letl.domain.schedule import Schedule
+from letl.domain import cfg, logger as log, job_result, resource_manager, schedule
 
 __all__ = ("Job",)
 
@@ -15,9 +12,9 @@ class Job:
     timeout_seconds: int
     retries: int
     run: typing.Callable[
-        [typing.Hashable, log.Logger, ResourceManager],
-        typing.Optional[JobResult],
+        [cfg.Config, log.Logger, resource_manager.ResourceManager],
+        typing.Optional[job_result.JobResult],
     ]
-    schedule: typing.FrozenSet[Schedule]
-    config: typing.Optional[typing.Hashable] = None
+    schedule: typing.FrozenSet[schedule.Schedule]
+    config: cfg.Config
     dependencies: typing.FrozenSet[str] = frozenset()

@@ -6,6 +6,7 @@ import typing
 __all__ = (
     "DuplicateJobNames",
     "DuplicateResourceKey",
+    "OptionNotFound",
     "parse_exception",
     "ResourceKeyNotFound",
 )
@@ -84,6 +85,17 @@ class MissingJobImplementation(LetlError):
         self.job_name = job_name
         self.message = f"No implementation was found for the job, {job_name}."
         super().__init__(self.message)
+
+
+class OptionNotFound(LetlError):
+    def __init__(self, *, key: str, available_keys: typing.Set[str]):
+        self.key = key
+        self.available_keys = available_keys
+
+        super().__init__(
+            f"The configuration key, {key!r}, was not found.  Available keys include the following: "
+            f"{', '.join(sorted(repr(k) for k in available_keys))}"
+        )
 
 
 class ResourceKeyNotFound(LetlError):

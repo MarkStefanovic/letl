@@ -1,4 +1,5 @@
 from letl.domain import error
+from letl.domain.cfg import *
 from letl.domain.interval import *
 from letl.domain.job import *
 from letl.domain.job_result import *
