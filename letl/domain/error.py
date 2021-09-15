@@ -5,7 +5,9 @@ import typing
 
 __all__ = (
     "DuplicateJobNames",
+    "DuplicateResourceKey",
     "parse_exception",
+    "ResourceKeyNotFound",
 )
 
 
@@ -64,6 +66,13 @@ class DuplicateJobNames(LetlError):
         super().__init__(self.message)
 
 
+class DuplicateResourceKey(LetlError):
+    def __init__(self, counts: typing.Dict[str, int]):
+        self.counts = counts
+        dupes_msg = ", ".join(f"{k} ({ct})" for k, ct in counts.items())
+        super().__init__(f"The following keys are duplicated: {dupes_msg}")
+
+
 class JobTimedOut(LetlError):
     def __init__(self, message: str):
         self.message = message
@@ -75,3 +84,12 @@ class MissingJobImplementation(LetlError):
         self.job_name = job_name
         self.message = f"No implementation was found for the job, {job_name}."
         super().__init__(self.message)
+
+
+class ResourceKeyNotFound(LetlError):
+    def __init__(self, *, key: str, available_keys: typing.Set[str]):
+        self.key = key
+        super().__init__(
+            f"The resource, {key!r}, was not found.  Available keys include the following: "
+            f"{', '.join(sorted(repr(k) for k in available_keys))}"
+        )

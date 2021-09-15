@@ -26,30 +26,6 @@ log = sa.Table(
     sa.Column("message", sa.String, nullable=False),
 )
 
-# schedule = sa.Table(
-#     "schedule",
-#     metadata,
-#     sa.Column(
-#         "id",
-#         sa.Integer,
-#         sa.Sequence(f"{SCHEMA}.schedule_id_seq"),
-#         primary_key=True,
-#     ),
-#     sa.Column("seconds", sa.Integer, nullable=True),
-#     sa.Column("start_monthday", sa.Integer, nullable=False),
-#     sa.Column("start_month", sa.Integer, nullable=False),
-#     sa.Column("end_month", sa.Integer, nullable=False),
-#     sa.Column("end_monthday", sa.Integer, nullable=False),
-#     sa.Column("start_weekday", sa.Integer, nullable=False),
-#     sa.Column("end_weekday", sa.Integer, nullable=False),
-#     sa.Column("start_hour", sa.Integer, nullable=False),
-#     sa.Column("start_minute", sa.Integer, nullable=False),
-#     sa.Column("end_hour", sa.Integer, nullable=False),
-#     sa.Column("end_minute", sa.Integer, nullable=False),
-#     sa.Column("added", sa.DateTime, nullable=False),
-#     sa.Column("updated", sa.DateTime, nullable=True),
-# )
-
 job_history = sa.Table(
     "job_history",
     metadata,

@@ -30,12 +30,14 @@ def delete_old_log_entries(etl_db_uri: str, days_to_keep: int = 3) -> domain.Job
     )
 
 
-def run(config: typing.Hashable, _: domain.Logger) -> domain.JobResult:
+def run(
+    config: typing.Hashable, _: domain.Logger, __: domain.ResourceManager
+) -> domain.JobResult:
     assert isinstance(config, DeleteOldLogConfig)
     cutoff = datetime.datetime.now() - datetime.timedelta(days=config.days_to_keep)
     engine = sa.create_engine(config.etl_db_uri)
-    log_repo = adapter.SALogRepo(engine=engine)
+    log_repo = adapter.DbLogRepo(engine=engine)
     log_repo.delete_before(cutoff)
-    status_repo = adapter.SAStatusRepo(engine=engine)
+    status_repo = adapter.DbStatusRepo(engine=engine)
     status_repo.delete_before(cutoff)
     return domain.JobResult.success()

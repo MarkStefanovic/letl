@@ -6,10 +6,10 @@ import sqlalchemy as sa
 from letl import domain
 from letl.adapter import db
 
-__all__ = ("SAStatusRepo",)
+__all__ = ("DbStatusRepo",)
 
 
-class SAStatusRepo(domain.StatusRepo):
+class DbStatusRepo(domain.StatusRepo):
     def __init__(self, *, engine: sa.engine.Engine):
         self._engine = engine
 

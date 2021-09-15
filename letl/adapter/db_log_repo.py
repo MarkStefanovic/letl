@@ -7,10 +7,10 @@ from letl import domain
 from letl.adapter import db
 from letl.domain import log_level
 
-__all__ = ("SALogRepo",)
+__all__ = ("DbLogRepo",)
 
 
-class SALogRepo(domain.LogRepo):
+class DbLogRepo(domain.LogRepo):
     def __init__(self, *, engine: sa.engine.Engine):
         self._engine = engine
 

@@ -8,6 +8,8 @@ from letl.domain.log_level import *
 from letl.domain.log_message import *
 from letl.domain.log_repo import *
 from letl.domain.logger import *
+from letl.domain.resource import *
+from letl.domain.resource_manager import *
 from letl.domain.schedule import *
 from letl.domain.scheduler import *
 from letl.domain.status import *

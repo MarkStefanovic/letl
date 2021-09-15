@@ -43,7 +43,10 @@ class NamedLogger(domain.Logger):
         message: str,
         ts: typing.Optional[datetime.datetime] = None,
     ) -> None:
-        if self._log_level_numeric_value[level] >= self._log_level_numeric_value[self._min_log_level]:
+        if (
+            self._log_level_numeric_value[level]
+            >= self._log_level_numeric_value[self._min_log_level]
+        ):
             self._recent_messages = {
                 msg: last_sent
                 for msg, last_sent in sorted(
@@ -142,7 +145,7 @@ class LoggerThread(threading.Thread):
 
         self._message_queue = message_queue
 
-        self._repo = adapter.SALogRepo(engine=engine)
+        self._repo = adapter.DbLogRepo(engine=engine)
 
     def run(self) -> None:
         while True:

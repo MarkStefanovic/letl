@@ -30,7 +30,7 @@ def delete_orphan_jobs(
     """
     logger.debug("Deleting jobs that are no longer active.")
     active_jobs = {job.job_name for job in current_jobs}
-    status_repo = adapter.SAStatusRepo(engine=admin_engine)
+    status_repo = adapter.DbStatusRepo(engine=admin_engine)
     statuses = status_repo.all()
     job_names = {s.job_name for s in statuses}
     orphan_jobs = job_names - active_jobs

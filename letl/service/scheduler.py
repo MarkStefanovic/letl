@@ -52,7 +52,7 @@ def update_queue(
     logger: domain.Logger,
 ) -> None:
     logger.debug(f"{datetime.datetime.now()}: running update_queue")
-    status_repo = adapter.SAStatusRepo(engine=engine)
+    status_repo = adapter.DbStatusRepo(engine=engine)
     job_map = {job.job_name: job for job in jobs}
     for job_name, job in job_map.items():
         logger.debug(f"Checking if [{job_name}] is ready...")

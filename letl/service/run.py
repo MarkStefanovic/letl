@@ -19,10 +19,12 @@ std_logger = domain.root_logger.getChild("run")
 def start(
     *,
     jobs: typing.List[domain.Job],
+    resources: typing.Iterable[domain.Resource[typing.Any]],
     etl_db_uri: str,
     max_job_runners: int = 5,
     days_logs_to_keep: int = 3,
     log_level: domain.LogLevel = domain.LogLevel.Info,
+    log_to_console: bool = False,
     log_sql_to_console: bool = False,
 ) -> None:
     try:
@@ -60,6 +62,7 @@ def start(
             name="root",
             message_queue=log_message_queue,
             min_log_level=log_level,
+            log_to_console=log_to_console,
         )
         logger.info("Logger started.")
 
@@ -89,7 +92,7 @@ def start(
                 engine=engine,
                 job_queue=job_queue,
                 logger=logger.new(name=f"JobRunner{i}"),
-                seconds_between_jobs=1,
+                resources=frozenset(resources),
             )
             threads.append(job_runner)
             job_runner.start()

@@ -1,6 +1,7 @@
 import multiprocessing as mp
 import queue
 import threading
+import typing
 
 import sqlalchemy as sa
 
@@ -18,14 +19,14 @@ class JobRunner(threading.Thread):
         engine: sa.engine.Engine,
         job_queue: "queue.Queue[domain.Job]",
         logger: domain.Logger,
-        seconds_between_jobs: int,
+        resources: typing.FrozenSet[domain.Resource[typing.Any]],
     ):
         super().__init__()
 
         self._engine = engine
         self._job_queue = job_queue
         self._logger = logger
-        self._seconds_between_jobs = seconds_between_jobs
+        self._resources = resources
 
     def run(self) -> None:
         while True:
@@ -35,6 +36,7 @@ class JobRunner(threading.Thread):
                     job=job,
                     engine=self._engine,
                     logger=self._logger,
+                    resources=self._resources,
                 )
             except Exception as e:
                 # noinspection PyBroadException
@@ -49,32 +51,41 @@ def run_job(
     job: domain.Job,
     engine: sa.engine.Engine,
     logger: domain.Logger,
+    resources: typing.FrozenSet[domain.Resource[typing.Any]],
 ) -> None:
-    status_repo = adapter.SAStatusRepo(engine=engine)
+    status_repo = adapter.DbStatusRepo(engine=engine)
     logger.info(f"Starting [{job.job_name}]...")
     status_repo.start(job_name=job.job_name)
-    result = run_job_in_process(
-        logger=logger.new(name=f"{logger.name}.{job.job_name}"), job=job
-    )
-    logger.debug(f"Saving results of [{job.job_name}] to database")
-    if result.is_error:
-        err_msg = result.error_message or "no error message was provided."
-        status_repo.error(job_name=job.job_name, error=err_msg)
-        logger.error(err_msg)
-    else:
-        status_repo.done(job_name=job.job_name)
-        logger.info(f"[{job.job_name}] finished.")
+    resource_manager = domain.ResourceManager(resources=resources, log=logger)
+    try:
+        result = run_job_in_process(
+            logger=logger.new(name=f"{logger.name}.{job.job_name}"),
+            job=job,
+            resources=resource_manager,
+        )
+        logger.debug(f"Saving results of [{job.job_name}] to database")
+        if result.is_error:
+            err_msg = result.error_message or "no error message was provided."
+            status_repo.error(job_name=job.job_name, error=err_msg)
+            logger.error(err_msg)
+        else:
+            status_repo.done(job_name=job.job_name)
+            logger.info(f"[{job.job_name}] finished.")
+    finally:
+        resource_manager.close()
+        logger.debug(f"{job.job_name} resources have been closed.")
 
 
 def run_job_in_process(
     *,
     logger: domain.Logger,
     job: domain.Job,
+    resources: domain.ResourceManager,
 ) -> domain.JobResult:
     result_queue: "mp.Queue[domain.JobResult]" = mp.Queue()
     p = mp.Process(
         target=run_job_with_retry,
-        args=(result_queue, job, logger, 0),
+        args=(result_queue, job, logger, resources, 0),
     )
     try:
         p.start()
@@ -99,10 +110,11 @@ def run_job_with_retry(
     result_queue: "mp.Queue[domain.JobResult]",
     job: domain.Job,
     logger: domain.Logger,
+    resources: domain.ResourceManager,
     retries_so_far: int = 0,
 ) -> None:
     try:
-        result = job.run(job.config, logger)  # type: ignore
+        result = job.run(job.config, logger, resources)  # type: ignore
         if result is None:
             result = domain.JobResult.success()
         result_queue.put(result)
@@ -112,6 +124,7 @@ def run_job_with_retry(
                 result_queue=result_queue,
                 job=job,
                 logger=logger,
+                resources=resources,
                 retries_so_far=retries_so_far + 1,
             )
         else:

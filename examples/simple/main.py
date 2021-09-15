@@ -18,25 +18,59 @@ class Config:
     payload: str
 
 
-def job1(config: typing.Hashable, logger: letl.Logger) -> None:
+class Printer:
+    def __init__(self, name: str):
+        self.name = name
+
+    def close(self) -> None:
+        print(f"closed {self.name}.")
+
+    def print(self, /, message: str) -> None:
+        print(f"{self.name}: {message}")
+
+
+class PrinterResource(letl.Resource[Printer]):
+    def __init__(self, key: str):
+        super().__init__(key=key)
+
+    def open(self) -> Printer:
+        return Printer(self.key)
+
+    def close(self, /, handle: Printer) -> None:
+        handle.close()
+
+
+def job1(
+    config: typing.Hashable, logger: letl.Logger, resources: letl.ResourceManager
+) -> None:
     logger.info("Job1 will always succeed.")
+    printer = resources.get("printer_1", Printer)
+    printer.print("Hello")
     assert isinstance(config, Config)
     time.sleep(12)
     logger.info(config.payload)
 
 
-def job2(_: typing.Hashable, logger: letl.Logger) -> None:
+def job2(
+    _: typing.Hashable, logger: letl.Logger, resources: letl.ResourceManager
+) -> None:
+    printer = resources.get("printer_2", Printer)
+    printer.print("Hello")
     logger.info("Job2 running (and is going to timeout)...")
     time.sleep(19)
 
 
-def job3(config: typing.Hashable, logger: letl.Logger) -> None:
+def job3(
+    _: typing.Hashable, logger: letl.Logger, resources: letl.ResourceManager
+) -> None:
     logger.info("Job3 will always fail...")
     time.sleep(2)
     raise Exception("I'm a bad job.")
 
 
-def job4(config: typing.Hashable, logger: letl.Logger) -> None:
+def job4(
+    config: typing.Hashable, logger: letl.Logger, resources: letl.ResourceManager
+) -> None:
     logger.info("Job4 depends on Job1, so it should always run after it.")
     assert isinstance(config, Config)
     time.sleep(2)
@@ -44,7 +78,6 @@ def job4(config: typing.Hashable, logger: letl.Logger) -> None:
 
 
 def main() -> None:
-
     config_fp = pathlib.Path(sys.argv[0]).parent / "config.json"
     with config_fp.open("r") as fh:
         config = json.load(fh)
@@ -115,8 +148,13 @@ def main() -> None:
             jobs=jobs,
             etl_db_uri=config["db_uri"],
             max_job_runners=3,
+            log_to_console=True,
             log_sql_to_console=False,
             log_level=letl.LogLevel.Debug,
+            resources=[
+                PrinterResource(key="printer_1"),
+                PrinterResource(key="printer_2"),
+            ],
         )
     finally:
         log_listener.stop()
