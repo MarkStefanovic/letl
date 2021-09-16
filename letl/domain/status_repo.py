@@ -2,14 +2,14 @@ import abc
 import datetime
 import typing
 
-from letl.domain.job_status import JobStatus
+from letl.domain import job_status
 
 __all__ = ("StatusRepo",)
 
 
 class StatusRepo(abc.ABC):
     @abc.abstractmethod
-    def all(self) -> typing.Set[JobStatus]:
+    def all(self) -> typing.Set[job_status.JobStatus]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -37,5 +37,5 @@ class StatusRepo(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def status(self, *, job_name: str) -> typing.Optional[JobStatus]:
+    def status(self, *, job_name: str) -> typing.Optional[job_status.JobStatus]:
         raise NotImplementedError

@@ -1,6 +1,5 @@
 import dataclasses
 import datetime
-import typing
 
 from letl.domain import log_level
 

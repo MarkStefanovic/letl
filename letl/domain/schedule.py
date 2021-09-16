@@ -4,8 +4,7 @@ import dataclasses
 import datetime
 import typing
 
-from letl.domain.interval import Interval
-from letl.domain.weekday import Weekday
+from letl.domain import interval, weekday
 
 __all__ = ("Schedule",)
 
@@ -23,7 +22,36 @@ class Schedule:
     start_minute: int
     end_hour: int
     end_minute: int
-    interval: Interval
+    interval: interval.Interval
+
+    def between(
+        self,
+        *,
+        start_month: typing.Optional[int] = None,
+        end_month: typing.Optional[int] = None,
+        start_monthday: typing.Optional[int] = None,
+        end_monthday: typing.Optional[int] = None,
+        start_weekday: typing.Optional[weekday.Weekday] = None,
+        end_weekday: typing.Optional[weekday.Weekday] = None,
+        start_hour: typing.Optional[int] = None,
+        start_minute: typing.Optional[int] = None,
+        end_hour: typing.Optional[int] = None,
+        end_minute: typing.Optional[int] = None,
+    ) -> Schedule:
+        overrides = {
+            "start_month": start_month,
+            "end_month": end_month,
+            "start_monthday": start_monthday,
+            "end_monthday": end_monthday,
+            "start_weekday": start_weekday,
+            "end_weekday": end_weekday,
+            "start_hour": start_hour,
+            "start_minute": start_minute,
+            "end_hour": end_hour,
+            "end_minute": end_minute,
+        }
+        overrides_provided = {k: v for k, v in overrides.items() if v is not None}
+        return dataclasses.replace(self, **overrides_provided)
 
     @staticmethod
     def daily(
@@ -32,15 +60,15 @@ class Schedule:
         end_month: int = 12,
         start_monthday: int = 1,
         end_monthday: int = 31,
-        start_weekday: Weekday = Weekday.Mon,
-        end_weekday: Weekday = Weekday.Sun,
+        start_weekday: weekday.Weekday = weekday.Weekday.Mon,
+        end_weekday: weekday.Weekday = weekday.Weekday.Sun,
         start_hour: int = 0,
         start_minute: int = 0,
         end_hour: int = 23,
         end_minute: int = 59,
     ) -> Schedule:
         return Schedule(
-            interval=Interval.daily(),
+            interval=interval.Interval.daily(),
             start=start,
             start_month=start_month,
             end_month=end_month,
@@ -62,15 +90,15 @@ class Schedule:
         end_month: int = 12,
         start_monthday: int = 1,
         end_monthday: int = 31,
-        start_weekday: Weekday = Weekday.Mon,
-        end_weekday: Weekday = Weekday.Sun,
+        start_weekday: weekday.Weekday = weekday.Weekday.Mon,
+        end_weekday: weekday.Weekday = weekday.Weekday.Sun,
         start_hour: int = 0,
         start_minute: int = 0,
         end_hour: int = 23,
         end_minute: int = 59,
     ) -> Schedule:
         return Schedule(
-            interval=Interval.every_x_seconds(seconds=seconds),
+            interval=interval.Interval.every_x_seconds(seconds=seconds),
             start=start,
             start_month=start_month,
             end_month=end_month,

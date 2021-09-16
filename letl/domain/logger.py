@@ -4,7 +4,7 @@ import abc
 import datetime
 import typing
 
-from letl.domain.log_level import LogLevel
+from letl.domain import log_level
 
 __all__ = ("Logger",)
 
@@ -45,6 +45,6 @@ class Logger(abc.ABC):
         *,
         name: str,
         log_to_console: typing.Optional[bool] = None,
-        min_log_level: typing.Optional[LogLevel] = None,
+        min_log_level: typing.Optional[log_level.LogLevel] = None,
     ) -> Logger:
         raise NotImplementedError
